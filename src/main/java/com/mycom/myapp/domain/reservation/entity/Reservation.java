@@ -1,18 +1,23 @@
 package com.mycom.myapp.domain.reservation.entity;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.hibernate.annotations.CreationTimestamp;
 
-import com.mycom.myapp.domain.reservation.dto.ReservationStatus;
+import com.mycom.myapp.domain.member.entity.Member;
+import com.mycom.myapp.domain.room.entity.Room;
+import com.mycom.myapp.global.common.enums.ReservationStatus;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
@@ -23,11 +28,13 @@ public class Reservation {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 	
-//	@ManyToOne(fetchType = FetchType.EAGER)
-//	private List<User> userId;
+	@ManyToOne(fetch = FetchType.EAGER)
+	@Column(name = "member_id")
+	private List<Member> memberId;
 	
-//	@ManyToOne(fetchType = FetchType.EAGER)
-//	private List<Room> roomId;
+	@ManyToOne(fetch = FetchType.EAGER)
+	@Column(name = "room_id")
+	private List<Room> roomId;
 	
 	@Column(nullable = false, name = "reservation_date")
 	private LocalDateTime reservationDate;
