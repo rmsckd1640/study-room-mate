@@ -1,11 +1,12 @@
 package com.mycom.myapp.domain.room.service;
 
-import java.util.List;
+import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Service;
 
 import com.mycom.myapp.domain.room.dto.RoomDto;
 import com.mycom.myapp.domain.room.dto.RoomResultDto;
+import com.mycom.myapp.domain.room.entity.Room;
 import com.mycom.myapp.domain.room.repository.RoomRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -20,50 +21,114 @@ public class RoomServiceImpl implements RoomService {
 
 	@Override
 	public RoomResultDto insertRoom(RoomDto roomDto) {
-		// TODO Auto-generated method stub
-		return null;
+		RoomResultDto roomResultDto = new RoomResultDto();
+		try {
+			Room room = Room
+					.builder().name(roomDto.getName())//
+					.location(roomDto.getLocation())//
+					.capacity(roomDto.getCapacity())//
+					.price(roomDto.getPrice())//
+					.createdAt(LocalDateTime.now())//
+					.updatedAt(null)//
+					.deletedAt(null)//
+					.build();
+			roomRepository.save(room);
+			roomResultDto.setResult("success");
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+			roomResultDto.setResult("fail");
+		}
+		return roomResultDto;
 	}
 
 	@Override
 	public RoomResultDto updateRoom(RoomDto roomDto) {
-		// TODO Auto-generated method stub
-		return null;
+		RoomResultDto roomResultDto = new RoomResultDto();
+		Room room = roomRepository.findById(roomDto.getId()).orElse(null);
+		if (room == null) {
+			roomResultDto.setResult("fail");
+			return roomResultDto;
+		}
+		room.setName(roomDto.getName());
+		room.setLocation(roomDto.getLocation());
+		room.setCapacity(roomDto.getCapacity());
+		room.setPrice(roomDto.getPrice());
+		room.setUpdatedAt(LocalDateTime.now());
+		roomResultDto.setResult("success");
+		return roomResultDto;
 	}
 
 	@Override
 	public RoomResultDto deleteRoom(Long id) {
-		// TODO Auto-generated method stub
-		return null;
+		RoomResultDto roomResultDto = new RoomResultDto();
+		Room room = roomRepository.findById(id).orElse(null);
+		if (room == null) {
+			roomResultDto.setResult("fail");
+			return roomResultDto;
+		}
+		try {
+			roomRepository.delete(room);
+			roomResultDto.setResult("success");
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+			roomResultDto.setResult("fail");
+		}
+		return roomResultDto;
 	}
 
 	@Override
-	public List<RoomDto> findAll() {
-		// TODO Auto-generated method stub
-		return null;
+	public RoomResultDto findAll() {
+		RoomResultDto roomResultDto = new RoomResultDto();
+		roomResultDto.setList(roomRepository.findAll());
+		roomResultDto.setResult("success");
+		return roomResultDto;
 	}
 
 	@Override
-	public RoomDto findById(Long id) {
-		// TODO Auto-generated method stub
-		return null;
+	public RoomResultDto findById(Long id) {
+		RoomResultDto roomResultDto = new RoomResultDto();
+		Room room = roomRepository.findById(id).orElse(null);
+		if (room == null) {
+			roomResultDto.setResult("fail");
+			return roomResultDto;
+		}
+		roomResultDto.setData(room);
+		roomResultDto.setResult("success");
+		return roomResultDto;
+
 	}
 
 	@Override
-	public RoomDto findByName(String name) {
-		// TODO Auto-generated method stub
-		return null;
+	public RoomResultDto findByName(String name) {
+		RoomResultDto roomResultDto = new RoomResultDto();
+		roomResultDto.setList(roomRepository.findByName(name));
+		roomResultDto.setResult("success");
+		return roomResultDto;
 	}
 
 	@Override
-	public List<RoomDto> findByLocation(String location) {
-		// TODO Auto-generated method stub
-		return null;
+	public RoomResultDto findByLocation(String location) {
+		RoomResultDto roomResultDto = new RoomResultDto();
+		roomResultDto.setList(roomRepository.findByLocation(location));
+		roomResultDto.setResult("success");
+		return roomResultDto;
 	}
 
 	@Override
-	public List<RoomDto> findByPrice(int price) {
-		// TODO Auto-generated method stub
-		return null;
+	public RoomResultDto findByCapacityGreaterThanEqual(int capacity) {
+		RoomResultDto roomResultDto = new RoomResultDto();
+		roomResultDto.setList(roomRepository.findByCapacityGreaterThanEqual(capacity));
+		roomResultDto.setResult("success");
+		return roomResultDto;
 	}
 
+	@Override
+	public RoomResultDto findByPriceGreaterThanEqual(int price) {
+		RoomResultDto roomResultDto = new RoomResultDto();
+		roomResultDto.setList(roomRepository.findByPriceLessThanEqual(price));
+		roomResultDto.setResult("success");
+		return roomResultDto;
+	}
 }
