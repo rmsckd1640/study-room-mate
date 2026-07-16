@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import org.hibernate.annotations.CreationTimestamp;
 
 import com.mycom.myapp.domain.member.entity.Member;
+import com.mycom.myapp.domain.reservation.dto.ReservationDto;
 import com.mycom.myapp.domain.room.entity.Room;
 import com.mycom.myapp.global.common.enums.ReservationStatus;
 
@@ -65,5 +66,17 @@ public class Reservation {
 
 	@Column(name = "deleted_at")
 	private LocalDateTime deletedAt;
+	
+	// Reservation.java
+	public ReservationDto toDto() {
+	    return ReservationDto.builder()
+	            .id(this.id)
+	            .roomId(this.room.getId())
+	            .reservationDate(this.reservationDate)
+	            .startTime(this.startTime)
+	            .endTime(this.endTime)
+	            .status(this.status)
+	            .build();
+	}
 	
 }
