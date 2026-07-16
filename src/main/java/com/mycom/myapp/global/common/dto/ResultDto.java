@@ -1,7 +1,6 @@
 package com.mycom.myapp.global.common.dto;
 
-import java.util.List;
-import java.util.Map;
+import org.springframework.http.HttpStatus;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -14,9 +13,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ResultDto<T> {
 	
-	private int status;
 	private String result;
-	private List<T> listDto;
-	private Map<?, T> mapDto;
+	private HttpStatus status;
+	private String message;
+	private T data;
 	
 }
