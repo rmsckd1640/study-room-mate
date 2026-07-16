@@ -1,5 +1,8 @@
 package com.mycom.myapp.domain.reservation.service;
 
+import java.time.LocalDate;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
@@ -29,41 +32,42 @@ public class ReservationServiceImpl implements ReservationService {
 		ResultDto<String> resultDto = new ResultDto();
 		
 		try {
-			if (reservationRepository.existsOverlappingReservation(reservationDto.getRoomId(), reservationDto.getStartDate(), reservationDto.getEndDate())) {
-				throw new DuplicateReservationException("예약 시간대에 이미 예약이 되어있습니다.");
-			}
+			validateNoDuplicateReservation(reservationDto);
 			
 			Room room = roomRepository.findById(reservationDto.getRoomId()).orElseThrow();
 			Member member = Member.builder().email("test@test.com").name("엄주호").password("1234").role(MemberRole.USER).build();
 			
-			/*
 			Reservation reservation = Reservation.builder()
 													.room(room)
-													.status(ReservationStatus.PENDING)
 													.member(member)
-													.reservationDate(null)
-													.startTime(null)
-													.endTime(null)
+													.status(ReservationStatus.PENDING)
+													.reservationDate(LocalDate.now())
+													.startTime(reservationDto.getStartDate())
+													.endTime(reservationDto.getEndDate())
 													.build();
-			*/
 			
+			reservationRepository.save(reservation);
+			
+			resultDto.setResult("success");
+			resultDto.setStatus(HttpStatus.OK);
 		} catch (Exception e) {
 			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
 			e.printStackTrace();
 			resultDto.setResult("fail");
+			resultDto.setStatus(HttpStatus.BAD_REQUEST);
+			resultDto.setMessage(e.getMessage());
 		}
 		
 		return resultDto;
 	}
-	
-	@Transactional
+
 	ResultDto<String> reservationList(ReservationDto reservationDto) {
 		ResultDto<String> resultDto = new ResultDto();
 		
 		try {
-			
+			// TODO #1: User Security Context 에서 User 추출해서 reservation repository find
+			reservationRepository.findById(null);
 		} catch (Exception e) {
-			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
 			e.printStackTrace();
 			resultDto.setResult("fail");
 		}
@@ -84,6 +88,12 @@ public class ReservationServiceImpl implements ReservationService {
 		}
 		
 		return resultDto;
+	}
+	
+	private void validateNoDuplicateReservation(ReservationDto reservationDto) {
+		if (reservationRepository.existsOverlappingReservation(reservationDto.getRoomId(), reservationDto.getStartDate(), reservationDto.getEndDate())) {
+			throw new DuplicateReservationException("예약 시간대에 이미 예약이 되어있습니다.");			
+		}
 	}
 	
 }
