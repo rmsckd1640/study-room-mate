@@ -42,6 +42,10 @@ public class Member {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    private MemberGrade grade;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private MemberRole role;
 
     @CreationTimestamp
@@ -60,9 +64,14 @@ public class Member {
         this.email = email;
         this.name = name;
         this.role = role != null ? role : MemberRole.USER;
+        this.grade = MemberGrade.BRONZE;
     }
 
     public void delete() {
         this.deletedAt = LocalDateTime.now();
+    }
+
+    public void updateGrade(long confirmedReservationCount) {
+        this.grade = MemberGrade.of(confirmedReservationCount);
     }
 }
