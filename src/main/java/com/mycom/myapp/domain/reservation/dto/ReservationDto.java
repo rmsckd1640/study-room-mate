@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ReservationDto {
 	
-	private int roomId;
+	private long roomId;
 	private LocalDateTime reservationDate;
 	private LocalDateTime startDate;
 	private LocalDateTime endDate;
