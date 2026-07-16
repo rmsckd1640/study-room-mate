@@ -19,8 +19,10 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.Builder;
 
 @Entity
+@Builder
 @Table(name = "reservation")
 public class Reservation {
 
@@ -29,12 +31,10 @@ public class Reservation {
 	private Long id;
 	
 	@ManyToOne(fetch = FetchType.EAGER)
-	@Column(name = "member_id")
-	private List<Member> memberId;
+	private List<Member> member;
 	
 	@ManyToOne(fetch = FetchType.EAGER)
-	@Column(name = "room_id")
-	private List<Room> roomId;
+	private List<Room> room;
 	
 	@Column(nullable = false, name = "reservation_date")
 	private LocalDateTime reservationDate;
