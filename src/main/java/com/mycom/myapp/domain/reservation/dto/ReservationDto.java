@@ -1,5 +1,5 @@
 package com.mycom.myapp.domain.reservation.dto;
 
-public class MemberDto {
+public class ReservationDto {
 
 }
