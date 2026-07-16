@@ -13,5 +13,5 @@ public interface RoomService {
 	RoomResultDto findByName(String name);
 	RoomResultDto findByLocation(String location);
 	RoomResultDto findByCapacityGreaterThanEqual(int capacity);
-	RoomResultDto findByPriceGreaterThanEqual(int price);
+	RoomResultDto findByPriceLessThanEqual(int price);
 }

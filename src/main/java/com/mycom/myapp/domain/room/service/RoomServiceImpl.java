@@ -9,6 +9,7 @@ import com.mycom.myapp.domain.room.dto.RoomResultDto;
 import com.mycom.myapp.domain.room.entity.Room;
 import com.mycom.myapp.domain.room.repository.RoomRepository;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -43,6 +44,7 @@ public class RoomServiceImpl implements RoomService {
 	}
 
 	@Override
+	@Transactional
 	public RoomResultDto updateRoom(RoomDto roomDto) {
 		RoomResultDto roomResultDto = new RoomResultDto();
 		Room room = roomRepository.findById(roomDto.getId()).orElse(null);
@@ -125,7 +127,7 @@ public class RoomServiceImpl implements RoomService {
 	}
 
 	@Override
-	public RoomResultDto findByPriceGreaterThanEqual(int price) {
+	public RoomResultDto findByPriceLessThanEqual(int price) {
 		RoomResultDto roomResultDto = new RoomResultDto();
 		roomResultDto.setList(roomRepository.findByPriceLessThanEqual(price));
 		roomResultDto.setResult("success");
