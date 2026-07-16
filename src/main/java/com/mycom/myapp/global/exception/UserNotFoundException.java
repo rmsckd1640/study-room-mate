@@ -1,5 +1,5 @@
 package com.mycom.myapp.global.exception;
 
-public class MemberController {
+public class UserNotFoundException {
 
 }
