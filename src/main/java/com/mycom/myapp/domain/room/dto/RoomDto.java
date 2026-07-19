@@ -1,18 +1,11 @@
 package com.mycom.myapp.domain.room.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import java.time.LocalDateTime;
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class RoomDto {
-	private Long id;
-	private String name;
-	private String location;
-	private int capacity;
-	private int price;
+import com.mycom.myapp.domain.room.entity.Room;
+
+public record RoomDto(Long id, String name, String location, Integer capacity, Integer price, LocalDateTime createdAt) {
+	public static RoomDto from(Room room) {
+		return new RoomDto(room.getId(), room.getName(), room.getLocation(), room.getCapacity(), room.getPrice(), room.getCreatedAt());
+	}
 }

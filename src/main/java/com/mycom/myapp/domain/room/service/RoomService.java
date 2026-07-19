@@ -1,17 +1,26 @@
 package com.mycom.myapp.domain.room.service;
 
-import com.mycom.myapp.domain.room.dto.RoomDto;
-import com.mycom.myapp.domain.room.dto.RoomResultDto;
+import java.util.List;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
+import com.mycom.myapp.domain.room.dto.RoomCreateRequest;
+import com.mycom.myapp.domain.room.dto.RoomResponseDto;
+import com.mycom.myapp.domain.room.dto.RoomUpdateRequest;
 
 public interface RoomService {
+	RoomResponseDto getRoom(Long roomId);
 
-	RoomResultDto insertRoom(RoomDto roomDto);
-	RoomResultDto updateRoom(RoomDto roomDto);
-	RoomResultDto deleteRoom(Long id);
-	RoomResultDto findAll();
-	RoomResultDto findById(Long id);
-	RoomResultDto findByName(String name);
-	RoomResultDto findByLocation(String location);
-	RoomResultDto findByCapacityGreaterThanEqual(int capacity);
-	RoomResultDto findByPriceLessThanEqual(int price);
+	Page<RoomResponseDto> getRooms(Pageable pageable);
+
+	List<RoomResponseDto> searchByName(String name);
+
+	List<RoomResponseDto> searchByLocation(String location);
+
+	RoomResponseDto createRoom(RoomCreateRequest request);
+
+	RoomResponseDto updateRoom(Long roomId, RoomUpdateRequest request);
+
+	void deleteRoom(Long roomId);
 }

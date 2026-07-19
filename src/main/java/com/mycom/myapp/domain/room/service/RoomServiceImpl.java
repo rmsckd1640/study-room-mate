@@ -1,136 +1,75 @@
 package com.mycom.myapp.domain.room.service;
 
-import java.time.LocalDateTime;
+import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import com.mycom.myapp.domain.room.dto.RoomDto;
-import com.mycom.myapp.domain.room.dto.RoomResultDto;
+import com.mycom.myapp.domain.room.dto.RoomCreateRequest;
+import com.mycom.myapp.domain.room.dto.RoomResponseDto;
+import com.mycom.myapp.domain.room.dto.RoomUpdateRequest;
 import com.mycom.myapp.domain.room.entity.Room;
 import com.mycom.myapp.domain.room.repository.RoomRepository;
+import com.mycom.myapp.global.exception.RoomNotFoundException;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Transactional(readOnly = true)
 public class RoomServiceImpl implements RoomService {
 
 	private final RoomRepository roomRepository;
 
 	@Override
-	public RoomResultDto insertRoom(RoomDto roomDto) {
-		RoomResultDto roomResultDto = new RoomResultDto();
-		try {
-			Room room = Room
-					.builder().name(roomDto.getName())//
-					.location(roomDto.getLocation())//
-					.capacity(roomDto.getCapacity())//
-					.price(roomDto.getPrice())//
-					.createdAt(LocalDateTime.now())//
-					.updatedAt(null)//
-					.deletedAt(null)//
-					.build();
-			roomRepository.save(room);
-			roomResultDto.setResult("success");
-		}
-		catch (Exception e) {
-			e.printStackTrace();
-			roomResultDto.setResult("fail");
-		}
-		return roomResultDto;
+	public RoomResponseDto getRoom(Long roomId) {
+		Room room = findRoomOrThrow(roomId);
+		return RoomResponseDto.from(room);
+	}
+
+	@Override
+	public Page<RoomResponseDto> getRooms(Pageable pageable) {
+		return roomRepository.findAll(pageable).map(RoomResponseDto::from);
+	}
+
+	@Override
+	public List<RoomResponseDto> searchByName(String name) {
+		return roomRepository.findByNameContaining(name).stream().map(RoomResponseDto::from).toList();
+	}
+
+	@Override
+	public List<RoomResponseDto> searchByLocation(String location) {
+		return roomRepository.findByLocationContaining(location).stream().map(RoomResponseDto::from).toList();
 	}
 
 	@Override
 	@Transactional
-	public RoomResultDto updateRoom(RoomDto roomDto) {
-		RoomResultDto roomResultDto = new RoomResultDto();
-		Room room = roomRepository.findById(roomDto.getId()).orElse(null);
-		if (room == null) {
-			roomResultDto.setResult("fail");
-			return roomResultDto;
-		}
-		room.setName(roomDto.getName());
-		room.setLocation(roomDto.getLocation());
-		room.setCapacity(roomDto.getCapacity());
-		room.setPrice(roomDto.getPrice());
-		room.setUpdatedAt(LocalDateTime.now());
-		roomResultDto.setResult("success");
-		return roomResultDto;
+	public RoomResponseDto createRoom(RoomCreateRequest request) {
+		Room room = request.toEntity();
+		Room saved = roomRepository.save(room);
+		return RoomResponseDto.from(saved);
 	}
 
 	@Override
-	public RoomResultDto deleteRoom(Long id) {
-		RoomResultDto roomResultDto = new RoomResultDto();
-		Room room = roomRepository.findById(id).orElse(null);
-		if (room == null) {
-			roomResultDto.setResult("fail");
-			return roomResultDto;
-		}
-		try {
-			roomRepository.delete(room);
-			roomResultDto.setResult("success");
-		}
-		catch (Exception e) {
-			e.printStackTrace();
-			roomResultDto.setResult("fail");
-		}
-		return roomResultDto;
+	@Transactional
+	public RoomResponseDto updateRoom(Long roomId, RoomUpdateRequest request) {
+		Room room = findRoomOrThrow(roomId);
+		room.update(request.name(), request.location(), request.capacity(), request.price());
+		return RoomResponseDto.from(room);
 	}
 
 	@Override
-	public RoomResultDto findAll() {
-		RoomResultDto roomResultDto = new RoomResultDto();
-		roomResultDto.setList(roomRepository.findAll());
-		roomResultDto.setResult("success");
-		return roomResultDto;
+	@Transactional
+	public void deleteRoom(Long roomId) {
+		Room room = findRoomOrThrow(roomId);
+		roomRepository.delete(room);
 	}
 
-	@Override
-	public RoomResultDto findById(Long id) {
-		RoomResultDto roomResultDto = new RoomResultDto();
-		Room room = roomRepository.findById(id).orElse(null);
-		if (room == null) {
-			roomResultDto.setResult("fail");
-			return roomResultDto;
-		}
-		roomResultDto.setData(room);
-		roomResultDto.setResult("success");
-		return roomResultDto;
-
-	}
-
-	@Override
-	public RoomResultDto findByName(String name) {
-		RoomResultDto roomResultDto = new RoomResultDto();
-		roomResultDto.setList(roomRepository.findByName(name));
-		roomResultDto.setResult("success");
-		return roomResultDto;
-	}
-
-	@Override
-	public RoomResultDto findByLocation(String location) {
-		RoomResultDto roomResultDto = new RoomResultDto();
-		roomResultDto.setList(roomRepository.findByLocation(location));
-		roomResultDto.setResult("success");
-		return roomResultDto;
-	}
-
-	@Override
-	public RoomResultDto findByCapacityGreaterThanEqual(int capacity) {
-		RoomResultDto roomResultDto = new RoomResultDto();
-		roomResultDto.setList(roomRepository.findByCapacityGreaterThanEqual(capacity));
-		roomResultDto.setResult("success");
-		return roomResultDto;
-	}
-
-	@Override
-	public RoomResultDto findByPriceLessThanEqual(int price) {
-		RoomResultDto roomResultDto = new RoomResultDto();
-		roomResultDto.setList(roomRepository.findByPriceLessThanEqual(price));
-		roomResultDto.setResult("success");
-		return roomResultDto;
+	private Room findRoomOrThrow(Long roomId) {
+		return roomRepository.findById(roomId).orElseThrow(() -> new RoomNotFoundException("존재하지 않는 room입니다. id=" + roomId));
 	}
 }
