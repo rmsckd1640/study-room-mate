@@ -14,19 +14,19 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 	
 	@Query(
 	"""
-	SELECT	CASE WHEN COUNT(r) > 0 THEN true ELSE false END
-	FROM	Reservation r
-	WHERE	r.roomId = 	:roomId
-	AND		r.status <>	'CANCELLED'
-	AND		r.deletedAt IS NULL
-	AND		r.startTime < :endTime
-	AND		r.endTime	> :startTime
-	"""
+    SELECT CASE WHEN COUNT(r) > 0 THEN true ELSE false END
+    FROM Reservation r
+    WHERE r.room.id = :roomId
+    AND   r.status <> 'CANCELLED'
+    AND   r.deletedAt IS NULL
+    AND   r.startTime < :endTime
+    AND   r.endTime   > :startTime
+    """
 	)
 	boolean existsOverlappingReservation(
-			@Param("roomId") long roomId,
-			@Param("startTime") LocalDateTime startTime,
-			@Param("endTime") LocalDateTime endTime
+	        @Param("roomId") long roomId,
+	        @Param("startTime") LocalDateTime startTime,
+	        @Param("endTime") LocalDateTime endTime
 	);
 	
 	
