@@ -18,6 +18,10 @@ public interface RoomService {
 
 	List<RoomResponseDto> searchByLocation(String location);
 
+	List<RoomResponseDto> searchByMinCapacity(Integer capacity); // 추가
+
+	List<RoomResponseDto> searchByMaxPrice(Integer price); // 추가
+
 	RoomResponseDto createRoom(RoomCreateRequest request);
 
 	RoomResponseDto updateRoom(Long roomId, RoomUpdateRequest request);
