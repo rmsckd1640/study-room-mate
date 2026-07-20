@@ -22,6 +22,7 @@ import com.mycom.myapp.domain.room.dto.RoomCreateRequest;
 import com.mycom.myapp.domain.room.dto.RoomResponseDto;
 import com.mycom.myapp.domain.room.dto.RoomUpdateRequest;
 import com.mycom.myapp.domain.room.service.RoomService;
+import com.mycom.myapp.global.common.dto.ResultDto;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -34,50 +35,56 @@ public class RoomController {
 	private final RoomService roomService;
 
 	@GetMapping("/{id}")
-	public ResponseEntity<RoomResponseDto> getRoom(@PathVariable Long id) {
-		return ResponseEntity.ok(roomService.getRoom(id));
+	public ResponseEntity<ResultDto<RoomResponseDto>> getRoom(@PathVariable("id") Long id) {
+		RoomResponseDto data = roomService.getRoom(id);
+		return ResponseEntity.ok(ResultDto.<RoomResponseDto>builder().message("조회 성공").data(data).build());
 	}
 
 	@GetMapping
-	public ResponseEntity<Page<RoomResponseDto>> getRooms(@PageableDefault(size = 20, sort = "name", direction = Sort.Direction.DESC) Pageable pageable) {
-		return ResponseEntity.ok(roomService.getRooms(pageable));
+	public ResponseEntity<ResultDto<Page<RoomResponseDto>>> getRooms(@PageableDefault(size = 20, sort = "name", direction = Sort.Direction.DESC) Pageable pageable) {
+		Page<RoomResponseDto> data = roomService.getRooms(pageable);
+		return ResponseEntity.ok(ResultDto.<Page<RoomResponseDto>>builder().message("조회 성공").data(data).build());
 	}
 
 	@GetMapping("/search/name")
-	public ResponseEntity<List<RoomResponseDto>> searchByName(@RequestParam String name) {
-		return ResponseEntity.ok(roomService.searchByName(name));
+	public ResponseEntity<ResultDto<List<RoomResponseDto>>> searchByName(@RequestParam String name) {
+		List<RoomResponseDto> data = roomService.searchByName(name);
+		return ResponseEntity.ok(ResultDto.<List<RoomResponseDto>>builder().message("검색 성공").data(data).build());
 	}
 
 	@GetMapping("/search/location")
-	public ResponseEntity<List<RoomResponseDto>> searchByLocation(@RequestParam String location) {
-		return ResponseEntity.ok(roomService.searchByLocation(location));
+	public ResponseEntity<ResultDto<List<RoomResponseDto>>> searchByLocation(@RequestParam String location) {
+		List<RoomResponseDto> data = roomService.searchByLocation(location);
+		return ResponseEntity.ok(ResultDto.<List<RoomResponseDto>>builder().message("검색 성공").data(data).build());
 	}
 
 	@GetMapping("/search/capacity")
-	public ResponseEntity<List<RoomResponseDto>> searchByCapacity(@RequestParam Integer capacity) {
-		return ResponseEntity.ok(roomService.searchByMinCapacity(capacity));
+	public ResponseEntity<ResultDto<List<RoomResponseDto>>> searchByCapacity(@RequestParam Integer capacity) {
+		List<RoomResponseDto> data = roomService.searchByMinCapacity(capacity);
+		return ResponseEntity.ok(ResultDto.<List<RoomResponseDto>>builder().message("검색 성공").data(data).build());
 	}
 
 	@GetMapping("/search/price")
-	public ResponseEntity<List<RoomResponseDto>> searchByPrice(@RequestParam Integer price) {
-		return ResponseEntity.ok(roomService.searchByMaxPrice(price));
+	public ResponseEntity<ResultDto<List<RoomResponseDto>>> searchByPrice(@RequestParam Integer price) {
+		List<RoomResponseDto> data = roomService.searchByMaxPrice(price);
+		return ResponseEntity.ok(ResultDto.<List<RoomResponseDto>>builder().message("검색 성공").data(data).build());
 	}
 
 	@PostMapping
-	public ResponseEntity<RoomResponseDto> create(@RequestBody @Valid RoomCreateRequest request) {
-		RoomResponseDto result = roomService.createRoom(request);
-		return ResponseEntity.status(HttpStatus.CREATED).body(result);
+	public ResponseEntity<ResultDto<RoomResponseDto>> create(@RequestBody @Valid RoomCreateRequest request) {
+		RoomResponseDto data = roomService.createRoom(request);
+		return ResponseEntity.status(HttpStatus.CREATED).body(ResultDto.<RoomResponseDto>builder().message("생성 성공").data(data).build());
 	}
 
 	@PatchMapping("/{id}")
-	public ResponseEntity<RoomResponseDto> update(@PathVariable Long id, @RequestBody @Valid RoomUpdateRequest request) {
-		return ResponseEntity.ok(roomService.updateRoom(id, request));
+	public ResponseEntity<ResultDto<RoomResponseDto>> update(@PathVariable("id") Long id, @RequestBody @Valid RoomUpdateRequest request) {
+		RoomResponseDto data = roomService.updateRoom(id, request);
+		return ResponseEntity.ok(ResultDto.<RoomResponseDto>builder().message("수정 성공").data(data).build());
 	}
 
 	@DeleteMapping("/{id}")
-	public ResponseEntity<Void> delete(@PathVariable Long id) {
+	public ResponseEntity<ResultDto<Void>> delete(@PathVariable("id") Long id) {
 		roomService.deleteRoom(id);
-		return ResponseEntity.noContent().build();
+		return ResponseEntity.ok(ResultDto.<Void>builder().message("삭제 성공").data(null).build());
 	}
-
 }
