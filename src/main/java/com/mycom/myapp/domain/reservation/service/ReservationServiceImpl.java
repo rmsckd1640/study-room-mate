@@ -3,12 +3,11 @@ package com.mycom.myapp.domain.reservation.service;
 import java.time.LocalDate;
 import java.util.List;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import com.mycom.myapp.domain.member.entity.Member;
-import com.mycom.myapp.domain.member.entity.MemberRole;
+import com.mycom.myapp.domain.member.repository.MemberRepository;
 import com.mycom.myapp.domain.reservation.dto.ReservationDto;
 import com.mycom.myapp.domain.reservation.entity.Reservation;
 import com.mycom.myapp.domain.reservation.repository.ReservationRepository;
@@ -27,17 +26,18 @@ import lombok.RequiredArgsConstructor;
 public class ReservationServiceImpl implements ReservationService {
 	
 	private final ReservationRepository reservationRepository;
+	private final MemberRepository memberRepository;
 	private final RoomRepository roomRepository;
 	
 	@Transactional
-	ResultDto<String> reservationInsert(ReservationDto reservationDto) {
-		ResultDto<String> resultDto = new ResultDto<>();
+	public ResultDto<ReservationDto> reservationInsert(ReservationDto reservationDto) {
+		ResultDto<ReservationDto> resultDto = new ResultDto<>();
 		
 		try {
 			validateNoDuplicateReservation(reservationDto);
 			
-			Room room = roomRepository.findById(reservationDto.getRoomId()).orElseThrow();
-			Member member = Member.builder().email("test@test.com").name("엄주호").password("1234").role(MemberRole.USER).build();
+			Room room = roomRepository.findByIdForUpdate(reservationDto.getRoomId()).orElseThrow();
+			Member member = memberRepository.findById(reservationDto.getMemberId()).orElseThrow();
 			
 			Reservation reservation = Reservation.builder()
 													.room(room)
@@ -49,21 +49,16 @@ public class ReservationServiceImpl implements ReservationService {
 													.build();
 			
 			reservationRepository.save(reservation);
-			
-			resultDto.setResult("success");
-			resultDto.setStatus(HttpStatus.OK);
 		} catch (Exception e) {
 			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
 			e.printStackTrace();
-			resultDto.setResult("fail");
-			resultDto.setStatus(HttpStatus.BAD_REQUEST);
 			resultDto.setMessage(e.getMessage());
 		}
 		
 		return resultDto;
 	}
 	
-	ResultDto<List<ReservationDto>> reservationPossibleList(RoomDto roomDto) {
+	public ResultDto<List<ReservationDto>> reservationPossibleList(RoomDto roomDto) {
 		ResultDto<List<ReservationDto>> resultDto = new ResultDto<>();
 		
 		try {
@@ -72,21 +67,17 @@ public class ReservationServiceImpl implements ReservationService {
 																		.map(Reservation::toDto)
 																		.toList();
 			
-			resultDto.setResult("success");
-			resultDto.setStatus(HttpStatus.OK);
 			resultDto.setData(reservations);
 		} catch (Exception e) {
 			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
 			e.printStackTrace();
-			resultDto.setResult("fail");
-			resultDto.setStatus(HttpStatus.BAD_REQUEST);
 			resultDto.setMessage(e.getMessage());
 		}
 		
 		return resultDto;
 	}
 
-	ResultDto<List<ReservationDto>> reservationList(ReservationDto reservationDto) {
+	public ResultDto<List<ReservationDto>> reservationList(ReservationDto reservationDto) {
 		ResultDto<List<ReservationDto>> resultDto = new ResultDto<>();
 		
 		try {
@@ -96,13 +87,9 @@ public class ReservationServiceImpl implements ReservationService {
 																		.map(Reservation::toDto)
 																		.toList();
 			
-			resultDto.setResult("success");
-			resultDto.setStatus(HttpStatus.OK);
 			resultDto.setData(reservations);
 		} catch (Exception e) {
 			e.printStackTrace();
-			resultDto.setResult("fail");
-			resultDto.setStatus(HttpStatus.BAD_REQUEST);
 			resultDto.setMessage(e.getMessage());
 		}
 		
@@ -110,22 +97,18 @@ public class ReservationServiceImpl implements ReservationService {
 	}
 	
 	@Transactional
-	ResultDto<String> reservationCancle(ReservationDto reservationDto) {
-		ResultDto<String> resultDto = new ResultDto<>();
+	public ResultDto<ReservationDto> reservationCancle(ReservationDto reservationDto) {
+		ResultDto<ReservationDto> resultDto = new ResultDto<>();
 		
 		try {
 			Reservation reservation = reservationRepository.findById(reservationDto.getId()).orElseThrow();
 			
 			reservation.changeStatus(ReservationStatus.CANCELLED);
 			
-			resultDto.setResult("success");
-			resultDto.setStatus(HttpStatus.OK);
 			resultDto.setMessage("cancled successfuly");
 		} catch (Exception e) {
 			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
 			e.printStackTrace();
-			resultDto.setResult("fail");
-			resultDto.setStatus(HttpStatus.BAD_REQUEST);
 			resultDto.setMessage(e.getMessage());
 		}
 		
