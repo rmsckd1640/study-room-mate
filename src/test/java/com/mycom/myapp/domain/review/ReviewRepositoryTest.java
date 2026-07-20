@@ -170,4 +170,26 @@ class ReviewRepositoryTest {
 		Double average = reviewRepository.findAverageRatingByRoomId(room1.getId());
 		assertThat(average).isEqualTo(3.0); // 삭제된 5점 리뷰는 제외되고 3점만 반영
 	}
+
+	@Test
+	@DisplayName("리뷰 삭제 후 같은 회원-room 조합으로 다시 저장할 수 있다 (UNIQUE 제약 제거 검증)")
+	void 삭제된_리뷰가_있어도_같은_조합으로_재작성_가능() {
+		// given
+		Review firstReview = reviewRepository.save(createReview(member1, room1, 5, "첫 리뷰"));
+		reviewRepository.delete(firstReview); // 소프트 삭제 -> deleted_at만 채워짐, row는 물리적으로 남아있음
+
+		// when
+		// 같은 member1, room1 조합으로 새 리뷰 저장 시도
+		// UNIQUE 제약이 남아있었다면 여기서 DataIntegrityViolationException이 발생했어야 함
+		Review secondReview = reviewRepository.save(createReview(member1, room1, 3, "다시 쓴 리뷰"));
+
+		// then
+		assertThat(secondReview.getId()).isNotEqualTo(firstReview.getId());
+
+		List<Review> activeReviews = reviewRepository.findByRoomId(room1.getId());
+		assertThat(activeReviews).hasSize(1); // 삭제된 첫 리뷰는 안 보이고, 새 리뷰만 활성 상태로 보임
+		assertThat(activeReviews.get(0).getContent()).isEqualTo("다시 쓴 리뷰");
+
+		assertThat(reviewRepository.existsByMember_IdAndRoom_Id(member1.getId(), room1.getId())).isTrue();
+	}
 }
