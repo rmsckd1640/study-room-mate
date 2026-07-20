@@ -10,16 +10,20 @@ import com.mycom.myapp.global.common.enums.ReservationStatus;
 public interface ReservationService {
 
 	ResultDto<ReservationDto> insert(ReservationDto reservationDto);
-	
-	ResultDto<List<ReservationDto>> possibleList(RoomDto roomDto);
-	
-	ResultDto<List<ReservationDto>> list(ReservationDto reservationDto);
-	
+			
 	ResultDto<ReservationDto> cancle(ReservationDto reservationDto);
 	
-	ResultDto<List<ReservationDto>> pendingList();
+	ResultDto<List<ReservationDto>> list();
 	
-	ResultDto<List<ReservationDto>> pendingList(long roomId);
+	ResultDto<List<ReservationDto>> list(long roomId);
+	
+	ResultDto<List<ReservationDto>> statusList(ReservationStatus status);
+	
+	ResultDto<List<ReservationDto>> statusList(ReservationStatus status, long roomId);
+	
+	ResultDto<List<ReservationDto>> statusCancledList();
+	
+	ResultDto<List<ReservationDto>> statusCancledList(long roomId);
 	
 	ResultDto<ReservationDto> confirm(long reservationId, ReservationStatus status);
 	
