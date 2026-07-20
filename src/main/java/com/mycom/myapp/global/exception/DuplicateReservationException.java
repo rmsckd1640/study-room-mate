@@ -1,7 +1,9 @@
 package com.mycom.myapp.global.exception;
 
-public class DuplicateReservationException extends RuntimeException {
-	public DuplicateReservationException(String message) {
-		super(message);
-	}
+import org.springframework.http.HttpStatus;
+
+public class DuplicateReservationException extends BaseException {
+    public DuplicateReservationException(String message) {
+        super(HttpStatus.CONFLICT, message);
+    }
 }

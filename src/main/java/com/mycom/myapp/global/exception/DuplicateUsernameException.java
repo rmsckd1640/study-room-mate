@@ -1,7 +1,9 @@
 package com.mycom.myapp.global.exception;
 
-public class DuplicateUsernameException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class DuplicateUsernameException extends BaseException {
     public DuplicateUsernameException(String message) {
-        super(message);
+        super(HttpStatus.CONFLICT, message);
     }
 }
