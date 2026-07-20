@@ -11,35 +11,28 @@ import com.mycom.myapp.domain.reservation.entity.Reservation;
 import com.mycom.myapp.global.common.enums.ReservationStatus;
 
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
-	
-	@Query(
-	"""
-    SELECT CASE WHEN COUNT(r) > 0 THEN true ELSE false END
-    FROM Reservation r
-    WHERE r.room.id = :roomId
-    AND   r.status <> 'CANCELLED'
-    AND   r.deletedAt IS NULL
-    AND   r.startTime < :endTime
-    AND   r.endTime   > :startTime
-    """
-	)
-	boolean existsOverlappingReservation(
-	        @Param("roomId") long roomId,
-	        @Param("startTime") LocalDateTime startTime,
-	        @Param("endTime") LocalDateTime endTime
-	);
-	
+
+	@Query("""
+			SELECT CASE WHEN COUNT(r) > 0 THEN true ELSE false END
+			FROM Reservation r
+			WHERE r.room.id = :roomId
+			AND   r.status <> 'CANCELLED'
+			AND   r.deletedAt IS NULL
+			AND   r.startTime < :endTime
+			AND   r.endTime   > :startTime
+			""")
+	boolean existsOverlappingReservation(@Param("roomId") long roomId, @Param("startTime") LocalDateTime startTime, @Param("endTime") LocalDateTime endTime);
+
 	List<Reservation> findByMemberId(Long memberId);
-	
-	@Query(
-	"""
-	SELECT 	r
-	FROM	Reservation r
-	WHERE	r.room.id =   :roomId
-	AND		r.status <>	  'CANCELLED'
-	AND		r.startTime > CURRENT_TIMESTAMP
-	"""
-	)
+
+	@Query("""
+			SELECT 	r
+			FROM	Reservation r
+			WHERE	r.room.id =   :roomId
+			AND		r.status <>	  'CANCELLED'
+			AND		r.startTime > CURRENT_TIMESTAMP
+			""")
 	List<Reservation> findByRoomId(Long roomId);
-	
+
+	boolean existsByMember_IdAndRoom_IdAndStatus(Long memberId, Long roomId, ReservationStatus status);
 }
