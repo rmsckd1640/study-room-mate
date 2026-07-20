@@ -15,10 +15,10 @@ import lombok.extern.slf4j.Slf4j;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-	@ExceptionHandler(RoomNotFoundException.class)
-	public ResponseEntity<ResultDto<Void>> handleRoomNotFound(RoomNotFoundException e) {
-		log.warn("RoomNotFoundException: {}", e.getMessage());
-		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ResultDto.<Void>builder().message(e.getMessage()).data(null).build());
+	@ExceptionHandler(BaseException.class)
+	public ResponseEntity<ResultDto<Void>> handleBaseException(BaseException e) {
+		log.warn("{}: {}", e.getClass().getSimpleName(), e.getMessage());
+		return ResponseEntity.status(e.getStatus()).body(ResultDto.<Void>builder().message(e.getMessage()).data(null).build());
 	}
 
 	@ExceptionHandler(MethodArgumentNotValidException.class)
