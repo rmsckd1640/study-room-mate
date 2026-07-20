@@ -9,13 +9,14 @@ import com.mycom.myapp.domain.member.entity.MemberRole;
 import com.mycom.myapp.domain.room.entity.Room;
 
 @Component
-public class RandomUtilImpl {
+public class RandomUtilImpl implements RandomUtils {
 	
 	public Member randomMember() {
 		return Member.builder()
 				.email(randomEmail())
 				.password(randomString(8))
 				.role(MemberRole.USER)
+				.name(randomString(5))
 				.username(randomString(7))
 				.build();
 	}

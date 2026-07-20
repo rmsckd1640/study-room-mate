@@ -114,10 +114,9 @@ public class ReservationServiceImpl implements ReservationService {
 		ResultDto<String> resultDto = new ResultDto<>();
 		
 		try {
-			if (reservationRepository.updateStatus(reservationDto.getId(), ReservationStatus.CANCELLED) < 1) {
-				resultDto.setResult("fail");
-				resultDto.setStatus(HttpStatus.BAD_REQUEST);
-			}
+			Reservation reservation = reservationRepository.findById(reservationDto.getId()).orElseThrow();
+			
+			reservation.changeStatus(ReservationStatus.CANCELLED);
 			
 			resultDto.setResult("success");
 			resultDto.setStatus(HttpStatus.OK);

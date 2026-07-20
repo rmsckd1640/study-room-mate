@@ -29,24 +29,13 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 	        @Param("endTime") LocalDateTime endTime
 	);
 	
-	
-	@Query(
-	"""
-	UPDATE 	Reservation r
-	SET		r.status 	= :status,
-			r.updatedAt	= CURRENT_TIMESTAMP
-	WHERE	r.id		= :id
-	"""
-	)
-	int updateStatus(Long id, ReservationStatus status);
-	
 	List<Reservation> findByMemberId(Long memberId);
 	
 	@Query(
 	"""
 	SELECT 	r
 	FROM	Reservation r
-	WHERE	r.roomId = 	  :roomId
+	WHERE	r.room.id =   :roomId
 	AND		r.status <>	  'CANCELLED'
 	AND		r.startTime > CURRENT_TIMESTAMP
 	"""
