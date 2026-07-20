@@ -88,7 +88,7 @@ public class ServiceTest {
 							.endTime(endTime)
 							.build();
 	                
-	                ResultDto<ReservationDto> result = reservationService.reservationInsert(dto);
+	                ResultDto<ReservationDto> result = reservationService.insert(dto);
 
 	                if (result.getMessage() == null) {	                	
 	                	successCount.incrementAndGet();
