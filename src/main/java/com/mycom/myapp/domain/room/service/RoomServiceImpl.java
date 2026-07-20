@@ -47,6 +47,16 @@ public class RoomServiceImpl implements RoomService {
 	}
 
 	@Override
+	public List<RoomResponseDto> searchByMinCapacity(Integer capacity) {
+		return roomRepository.findByCapacityGreaterThanEqual(capacity).stream().map(RoomResponseDto::from).toList();
+	}
+
+	@Override
+	public List<RoomResponseDto> searchByMaxPrice(Integer price) {
+		return roomRepository.findByPriceLessThanEqual(price).stream().map(RoomResponseDto::from).toList();
+	}
+
+	@Override
 	@Transactional
 	public RoomResponseDto createRoom(RoomCreateRequest request) {
 		Room room = request.toEntity();
