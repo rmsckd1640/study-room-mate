@@ -67,7 +67,6 @@ public class Reservation {
 	@Column(name = "deleted_at")
 	private LocalDateTime deletedAt;
 	
-	// Reservation.java
 	public ReservationDto toDto() {
 	    return ReservationDto.builder()
 	            .id(this.id)
@@ -77,6 +76,15 @@ public class Reservation {
 	            .endTime(this.endTime)
 	            .status(this.status)
 	            .build();
+	}
+
+	public void changeStatus(ReservationStatus newStatus) {
+	    if (this.status == ReservationStatus.CANCELLED) {
+	        throw new IllegalStateException("이미 취소된 예약입니다.");
+	    }
+
+	    this.status = newStatus;
+	    this.updatedAt = LocalDateTime.now();
 	}
 	
 }

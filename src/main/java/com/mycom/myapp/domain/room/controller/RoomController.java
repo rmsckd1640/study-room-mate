@@ -27,9 +27,9 @@ import com.mycom.myapp.global.common.dto.ResultDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-@RestController
-@RequiredArgsConstructor
-@RequestMapping("/api/rooms")
+//@RestController
+//@RequiredArgsConstructor
+//@RequestMapping("/api/rooms")
 public class RoomController {
 
 	private final RoomService roomService;
