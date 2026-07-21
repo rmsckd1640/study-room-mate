@@ -12,7 +12,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
+import com.mycom.myapp.global.jwt.JwtAccessDeniedHandler;
 import com.mycom.myapp.global.jwt.JwtAuthFilter;
+import com.mycom.myapp.global.jwt.JwtAuthenticationEntryPoint;
 
 import lombok.RequiredArgsConstructor;
 
@@ -23,6 +25,10 @@ public class SecurityConfig {
 
     // 매 요청마다 Access Token을 검사해서 SecurityContext를 채워주는 필터 (주입받음)
     private final JwtAuthFilter jwtAuthFilter;
+    // 인증 자체가 안 된 요청을 401로 응답
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    // 인증은 됐지만 권한이 부족한 요청을 403으로 응답
+    private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -50,7 +56,12 @@ public class SecurityConfig {
             )
             // JwtAuthFilter를 UsernamePasswordAuthenticationFilter보다 먼저 실행시켜서
             // 다른 인증 방식이 시도되기 전에 우리 JWT 검사가 먼저 SecurityContext를 채우게 함
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            // 필터 단계에서 걸러진 인증/인가 실패는 GlobalExceptionHandler가 아니라 여기서 처리됨
+            .exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint(jwtAuthenticationEntryPoint)
+                .accessDeniedHandler(jwtAccessDeniedHandler)
+            );
 
         return http.build();
     }
