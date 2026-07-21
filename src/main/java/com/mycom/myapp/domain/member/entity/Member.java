@@ -71,6 +71,17 @@ public class Member {
         this.deletedAt = LocalDateTime.now();
     }
 
+    // 이메일 중복 확인은 서비스에서 DB를 조회해야 아는 것이라 여기선 안 하고, 검증 통과한 값만 받아서 반영한다
+    public void updateInfo(String name, String email) {
+        this.name = name;
+        this.email = email;
+    }
+
+    // 암호화는 PasswordEncoder(외부 의존성)가 하는 일이라 서비스에서 인코딩까지 끝낸 값을 받는다
+    public void changePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
+
     public void updateGrade(long confirmedReservationCount) {
         this.grade = MemberGrade.of(confirmedReservationCount);
     }
