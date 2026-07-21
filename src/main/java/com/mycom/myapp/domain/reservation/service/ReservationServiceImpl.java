@@ -4,6 +4,7 @@ import java.nio.file.AccessDeniedException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
@@ -54,7 +55,9 @@ public class ReservationServiceImpl implements ReservationService {
 													.endTime(reservationDto.getEndTime())
 													.build();
 			
-			reservationRepository.save(reservation);
+			ReservationDto savedData = reservationRepository.save(reservation).toDto();
+			
+			resultDto.setData(savedData);
 		} catch (Exception e) {
 			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
 			e.printStackTrace();
@@ -70,7 +73,7 @@ public class ReservationServiceImpl implements ReservationService {
 		try {
 			String username = securityUtils.getCurrentUsername();
 			
-			List<ReservationDto> reservations = reservationRepository.findByMember_Username(username)
+			List<ReservationDto> reservations = reservationRepository.findByMember_UsernameAndDeletedAtIsNull(username)
 																		.stream()
 																		.map(Reservation::toDto)
 																		.toList();
@@ -90,7 +93,7 @@ public class ReservationServiceImpl implements ReservationService {
 		try {
 			String username = securityUtils.getCurrentUsername();
 			
-			List<ReservationDto> reservations = reservationRepository.findByRoomIdAndMember_Username(username, roomId)
+			List<ReservationDto> reservations = reservationRepository.findByRoomIdAndMember_UsernameAndDeletedAtIsNull(roomId, username)
 																		.stream()
 																		.map(Reservation::toDto)
 																		.toList();
@@ -126,7 +129,7 @@ public class ReservationServiceImpl implements ReservationService {
 		ResultDto<List<ReservationDto>> resultDto = new ResultDto<>();
 		
 		try {
-			List<ReservationDto> reservations = reservationRepository.findByRoomId(roomId)
+			List<ReservationDto> reservations = reservationRepository.findByRoomIdAndDeletedAtIsNull(roomId)
 																		.stream()
 																		.map(Reservation::toDto)
 																		.toList();
@@ -212,10 +215,9 @@ public class ReservationServiceImpl implements ReservationService {
 	public ResultDto<ReservationDto> confirm(Long reservationId, ReservationStatus status) {
 		ResultDto<ReservationDto> resultDto = new ResultDto<>();
 		
-		try {
-			String username = securityUtils.getCurrentUsername();
-			
-			Reservation reservation = reservationRepository.findByIdAndUser_Username(reservationId, username);
+		try {						
+	        Reservation reservation = reservationRepository.findById(reservationId)
+	                .orElseThrow(() -> new NoSuchElementException("예약을 찾을 수 없습니다."));
 			
 			switch (status) {
 				case CONFIRMED -> {
@@ -241,13 +243,13 @@ public class ReservationServiceImpl implements ReservationService {
 		return resultDto;
 	}
 	
-	public ResultDto<List<ReservationDto>> statusCancledList() {
+	public ResultDto<List<ReservationDto>> availableSlotList() {
 		ResultDto<List<ReservationDto>> resultDto = new ResultDto<>();
 		
 		try {
 			LocalDateTime time = LocalDateTime.now().plusHours(1).plusMinutes(20);
 			
-			List<ReservationDto> lists = reservationRepository.findByStatusAndStartTimeAfter(ReservationStatus.CANCELLED, time)
+			List<ReservationDto> lists = reservationRepository.findByStatusAndDeletedAtIsNullAndStartTimeAfter(ReservationStatus.CANCELLED, time)
 																.stream()
 																.map(Reservation::toDto)
 																.toList();
@@ -262,13 +264,13 @@ public class ReservationServiceImpl implements ReservationService {
 		return resultDto;
 	}
 	
-	public ResultDto<List<ReservationDto>> statusCancledList(Long roomId) {
+	public ResultDto<List<ReservationDto>> availableSlotList(Long roomId) {
 		ResultDto<List<ReservationDto>> resultDto = new ResultDto<>();
 		
 		try {
 			LocalDateTime time = LocalDateTime.now().plusHours(1).plusMinutes(20);
 			
-			List<ReservationDto> lists = reservationRepository.findByStatusAndRoomIdAndStartTimeAfter(ReservationStatus.CANCELLED, roomId, time)
+			List<ReservationDto> lists = reservationRepository.findByStatusAndRoomIdAndDeletedAtIsNullAndStartTimeAfter(ReservationStatus.CANCELLED, roomId, time)
 																.stream()
 																.map(Reservation::toDto)
 																.toList();

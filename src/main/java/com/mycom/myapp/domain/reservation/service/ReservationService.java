@@ -25,9 +25,9 @@ public interface ReservationService {
 	
 	ResultDto<List<ReservationDto>> statusList(ReservationStatus status, Long roomId);
 	
-	ResultDto<List<ReservationDto>> statusCancledList();
+	ResultDto<List<ReservationDto>> availableSlotList();
 	
-	ResultDto<List<ReservationDto>> statusCancledList(Long roomId);
+	ResultDto<List<ReservationDto>> availableSlotList(Long roomId);
 	
 	ResultDto<ReservationDto> confirm(Long reservationId, ReservationStatus status);
 	
