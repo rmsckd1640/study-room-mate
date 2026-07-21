@@ -8,6 +8,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -65,18 +66,21 @@ public class RoomController {
 	}
 
 	@PostMapping
+	@PreAuthorize("hasAuthority('ROLE_ADMIN')")
 	public ResponseEntity<ResultDto<RoomResponseDto>> create(@RequestBody @Valid RoomCreateRequest request) {
 		RoomResponseDto data = roomService.createRoom(request);
 		return ResponseEntity.status(HttpStatus.CREATED).body(ResultDto.<RoomResponseDto>builder().message("생성 성공").data(data).build());
 	}
 
 	@PatchMapping("/{id}")
+	@PreAuthorize("hasAuthority('ROLE_ADMIN')")
 	public ResponseEntity<ResultDto<RoomResponseDto>> update(@PathVariable("id") Long id, @RequestBody @Valid RoomUpdateRequest request) {
 		RoomResponseDto data = roomService.updateRoom(id, request);
 		return ResponseEntity.ok(ResultDto.<RoomResponseDto>builder().message("수정 성공").data(data).build());
 	}
 
 	@DeleteMapping("/{id}")
+	@PreAuthorize("hasAuthority('ROLE_ADMIN')")
 	public ResponseEntity<ResultDto<Void>> delete(@PathVariable("id") Long id) {
 		roomService.deleteRoom(id);
 		return ResponseEntity.ok(ResultDto.<Void>builder().message("삭제 성공").data(null).build());
