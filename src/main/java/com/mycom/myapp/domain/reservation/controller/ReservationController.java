@@ -32,7 +32,7 @@ public class ReservationController {
 	private final SecurityUtils securityUtils;
 	
 	@Operation(description = "ADMIN : 스터디룸 예약 조회")
-	@PreAuthorize("hasRole('ROLE_ADMIN')")
+	@PreAuthorize("hasAuthority('ROLE_ADMIN')")
 	@GetMapping("/admin")
 	public ResponseEntity<ResultDto<List<ReservationDto>>> list() {
 		ResultDto<List<ReservationDto>> list = reservationService.list();
@@ -41,7 +41,7 @@ public class ReservationController {
 	}
 	
 	@Operation(description = "ADMIN : 스터디룸 예약 스터디룸 아이디 조회")
-	@PreAuthorize("hasRole('ROLE_ADMIN')")
+	@PreAuthorize("hasAuthority('ROLE_ADMIN')")
 	@GetMapping("/admin/{id}")
 	public ResponseEntity<ResultDto<List<ReservationDto>>> list(@PathVariable("id") Long roomId) {
 		ResultDto<List<ReservationDto>> list = reservationService.list(roomId);
@@ -50,7 +50,7 @@ public class ReservationController {
 	}
 	
 	@Operation(description = "ADMIN : 스터디룸 사용자 상태 변경")
-	@PreAuthorize("hasRole('ROLE_ADMIN')")
+	@PreAuthorize("hasAuthority('ROLE_ADMIN')")
 	@PostMapping("/admin/{id}")
 	public ResponseEntity<ResultDto<ReservationDto>> confirm(
 	        @PathVariable("id") Long reservationId,
