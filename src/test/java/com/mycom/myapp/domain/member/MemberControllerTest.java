@@ -23,6 +23,9 @@ import com.mycom.myapp.domain.member.entity.MemberGrade;
 import com.mycom.myapp.domain.member.entity.MemberRole;
 import com.mycom.myapp.domain.member.service.MemberService;
 import com.mycom.myapp.global.exception.DuplicateUsernameException;
+import com.mycom.myapp.global.jwt.JwtAccessDeniedHandler;
+import com.mycom.myapp.global.jwt.JwtAuthFilter;
+import com.mycom.myapp.global.jwt.JwtAuthenticationEntryPoint;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -38,6 +41,17 @@ class MemberControllerTest {
 
     @MockitoBean
     private MemberService memberService;
+
+    // SecurityConfig 생성자가 요구하는 빈들 - addFilters=false라 실제로 호출되진 않고,
+    // ApplicationContext 로딩(SecurityConfig 생성)을 위해서만 채워준다
+    @MockitoBean
+    private JwtAuthFilter jwtAuthFilter;
+
+    @MockitoBean
+    private JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+
+    @MockitoBean
+    private JwtAccessDeniedHandler jwtAccessDeniedHandler;
 
     @Test
     @DisplayName("정상적인 요청으로 회원가입하면 201을 반환한다")

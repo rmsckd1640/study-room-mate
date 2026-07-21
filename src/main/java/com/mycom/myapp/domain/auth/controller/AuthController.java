@@ -2,7 +2,7 @@ package com.mycom.myapp.domain.auth.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,9 +36,9 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<ResultDto<Void>> logout(Authentication authentication) {
-        // JwtAuthFilter가 SecurityContext에 넣어둔 인증 정보에서 username을 꺼냄
-        authService.logout(authentication.getName());
+    public ResponseEntity<ResultDto<Void>> logout(@AuthenticationPrincipal String username) {
+        // JwtAuthFilter가 SecurityContext에 넣어둔 principal(username)을 직접 꺼냄
+        authService.logout(username);
 
         ResultDto<Void> result = ResultDto.<Void>builder()
                 .message("로그아웃되었습니다.")
