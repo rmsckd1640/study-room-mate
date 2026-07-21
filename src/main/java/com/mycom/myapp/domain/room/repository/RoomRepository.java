@@ -18,8 +18,6 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 
 	List<Room> findByNameContaining(String name);
 
-	List<Room> findByLocationContaining(String location);
-
 	List<Room> findByCapacityGreaterThanEqual(Integer capacity);
 
 	List<Room> findByPriceLessThanEqual(Integer price);
@@ -27,9 +25,9 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 	Page<Room> findByCapacityGreaterThanEqual(Integer capacity, Pageable pageable);
 
 	Page<Room> findByPriceLessThanEqual(Integer price, Pageable pageable);
-	
+
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("SELECT r FROM Room r WHERE r.id = :roomId")
 	Optional<Room> findByIdForUpdate(@Param("roomId") Long roomId);
-	
+
 }

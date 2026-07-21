@@ -52,12 +52,6 @@ public class RoomController {
 		return ResponseEntity.ok(ResultDto.<List<RoomResponseDto>>builder().message("검색 성공").data(data).build());
 	}
 
-	@GetMapping("/search/location")
-	public ResponseEntity<ResultDto<List<RoomResponseDto>>> searchByLocation(@RequestParam String location) {
-		List<RoomResponseDto> data = roomService.searchByLocation(location);
-		return ResponseEntity.ok(ResultDto.<List<RoomResponseDto>>builder().message("검색 성공").data(data).build());
-	}
-
 	@GetMapping("/search/capacity")
 	public ResponseEntity<ResultDto<List<RoomResponseDto>>> searchByCapacity(@RequestParam Integer capacity) {
 		List<RoomResponseDto> data = roomService.searchByMinCapacity(capacity);

@@ -16,11 +16,9 @@ public interface RoomService {
 
 	List<RoomResponseDto> searchByName(String name);
 
-	List<RoomResponseDto> searchByLocation(String location);
+	List<RoomResponseDto> searchByMinCapacity(Integer capacity);
 
-	List<RoomResponseDto> searchByMinCapacity(Integer capacity); // 추가
-
-	List<RoomResponseDto> searchByMaxPrice(Integer price); // 추가
+	List<RoomResponseDto> searchByMaxPrice(Integer price);
 
 	RoomResponseDto createRoom(RoomCreateRequest request);
 

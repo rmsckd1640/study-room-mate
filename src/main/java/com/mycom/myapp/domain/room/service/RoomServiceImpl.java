@@ -42,11 +42,6 @@ public class RoomServiceImpl implements RoomService {
 	}
 
 	@Override
-	public List<RoomResponseDto> searchByLocation(String location) {
-		return roomRepository.findByLocationContaining(location).stream().map(RoomResponseDto::from).toList();
-	}
-
-	@Override
 	public List<RoomResponseDto> searchByMinCapacity(Integer capacity) {
 		return roomRepository.findByCapacityGreaterThanEqual(capacity).stream().map(RoomResponseDto::from).toList();
 	}
@@ -68,7 +63,7 @@ public class RoomServiceImpl implements RoomService {
 	@Transactional
 	public RoomResponseDto updateRoom(Long roomId, RoomUpdateRequest request) {
 		Room room = findRoomOrThrow(roomId);
-		room.update(request.name(), request.location(), request.capacity(), request.price());
+		room.update(request.name(), request.capacity(), request.price());
 		return RoomResponseDto.from(room);
 	}
 
