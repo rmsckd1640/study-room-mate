@@ -2,6 +2,7 @@ package com.mycom.myapp.global.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -35,6 +36,12 @@ public class GlobalExceptionHandler {
 		// Room.update(), Room.changePrice() 내부에서 던지는 검증 예외
 		log.warn("IllegalArgumentException: {}", e.getMessage());
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ResultDto.<Void>builder().message(e.getMessage()).data(null).build());
+	}
+
+	@ExceptionHandler(AccessDeniedException.class)
+	public ResponseEntity<ResultDto<Void>> handleAccessDenied(AccessDeniedException e) {
+		log.warn("Access denied: {}", e.getMessage());
+		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ResultDto.<Void>builder().message("접근 권한이 없습니다.").data(null).build());
 	}
 
 	@ExceptionHandler(Exception.class)
