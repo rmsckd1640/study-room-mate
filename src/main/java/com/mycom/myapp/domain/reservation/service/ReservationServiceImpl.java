@@ -1,5 +1,6 @@
 package com.mycom.myapp.domain.reservation.service;
 
+import java.nio.file.AccessDeniedException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -16,6 +17,7 @@ import com.mycom.myapp.domain.room.entity.Room;
 import com.mycom.myapp.domain.room.repository.RoomRepository;
 import com.mycom.myapp.global.common.dto.ResultDto;
 import com.mycom.myapp.global.common.enums.ReservationStatus;
+import com.mycom.myapp.global.common.util.SecurityUtils;
 import com.mycom.myapp.global.exception.DuplicateReservationException;
 
 import jakarta.transaction.Transactional;
@@ -28,18 +30,20 @@ public class ReservationServiceImpl implements ReservationService {
 	private final ReservationRepository reservationRepository;
 	private final MemberRepository memberRepository;
 	private final RoomRepository roomRepository;
+	private final SecurityUtils securityUtils;
 	
 	@Transactional
 	public ResultDto<ReservationDto> insert(ReservationDto reservationDto) {
 		ResultDto<ReservationDto> resultDto = new ResultDto<>();
 		
 		try {
+			String username = securityUtils.getCurrentUsername();
+			
 			Room room = roomRepository.findByIdForUpdate(reservationDto.getRoomId()).orElseThrow();
 			
 			validateNoDuplicateReservation(reservationDto);
 			
-			// TODO #2. Security Context 에서 User 추출
-			Member member = memberRepository.findById(reservationDto.getMemberId()).orElseThrow();
+			Member member = memberRepository.findByUsername(username).orElseThrow();
 			
 			Reservation reservation = Reservation.builder()
 													.room(room)
@@ -60,16 +64,55 @@ public class ReservationServiceImpl implements ReservationService {
 		return resultDto;
 	}
 	
+	public ResultDto<List<ReservationDto>> myList() {
+		ResultDto<List<ReservationDto>> resultDto = new ResultDto<>();
+		
+		try {
+			String username = securityUtils.getCurrentUsername();
+			
+			List<ReservationDto> reservations = reservationRepository.findByMember_Username(username)
+																		.stream()
+																		.map(Reservation::toDto)
+																		.toList();
+
+			resultDto.setData(reservations);
+		} catch (Exception e) {
+			e.printStackTrace();
+			resultDto.setMessage(e.getMessage());
+		}
+		
+		return resultDto;
+	}
+	
+	public ResultDto<List<ReservationDto>> myList(Long roomId) {
+		ResultDto<List<ReservationDto>> resultDto = new ResultDto<>();
+		
+		try {
+			String username = securityUtils.getCurrentUsername();
+			
+			List<ReservationDto> reservations = reservationRepository.findByRoomIdAndMember_Username(username, roomId)
+																		.stream()
+																		.map(Reservation::toDto)
+																		.toList();
+
+			resultDto.setData(reservations);
+		} catch (Exception e) {
+			e.printStackTrace();
+			resultDto.setMessage(e.getMessage());
+		}
+		
+		return resultDto;
+	}
+	
 	public ResultDto<List<ReservationDto>> list() {
 		ResultDto<List<ReservationDto>> resultDto = new ResultDto<>();
 		
 		try {
-			// TODO #1: User Security Context 에서 User 추출해서 reservation repository find
-			List<ReservationDto> reservations = reservationRepository.findByMemberId(1L)
+			List<ReservationDto> reservations = reservationRepository.findAll()
 																		.stream()
 																		.map(Reservation::toDto)
 																		.toList();
-			
+
 			resultDto.setData(reservations);
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -79,11 +122,10 @@ public class ReservationServiceImpl implements ReservationService {
 		return resultDto;
 	}
 
-	public ResultDto<List<ReservationDto>> list(long roomId) {
+	public ResultDto<List<ReservationDto>> list(Long roomId) {
 		ResultDto<List<ReservationDto>> resultDto = new ResultDto<>();
 		
 		try {
-			// TODO #1: User Security Context 에서 User 추출해서 reservation repository find
 			List<ReservationDto> reservations = reservationRepository.findByRoomId(roomId)
 																		.stream()
 																		.map(Reservation::toDto)
@@ -99,20 +141,26 @@ public class ReservationServiceImpl implements ReservationService {
 	}
 	
 	@Transactional
-	public ResultDto<ReservationDto> cancle(ReservationDto reservationDto) {
+	public ResultDto<ReservationDto> cancle(Long reservationId) {
 		ResultDto<ReservationDto> resultDto = new ResultDto<>();
 		
 		try {
-			Reservation reservation = reservationRepository.findById(reservationDto.getId()).orElseThrow();
-			
-			if (reservation.getStatus() == ReservationStatus.CANCELLED) {
-				return resultDto;
-			}
-			
-			reservation.setStatus(ReservationStatus.CANCELLED);
-			reservation.setDeletedAt(LocalDateTime.now());
-			
-			resultDto.setMessage("cancled successfuly");
+	        String username = securityUtils.getCurrentUsername();
+	        
+	        Reservation reservation = reservationRepository.findById(reservationId).orElseThrow();
+	        
+	        if (!reservation.getMember().getUsername().equals(username)) {
+	            throw new AccessDeniedException("본인 예약만 취소할 수 있습니다.");
+	        }
+	        
+	        if (reservation.getStatus() == ReservationStatus.CANCELLED) {
+	            return resultDto;
+	        }
+	        
+	        reservation.setStatus(ReservationStatus.CANCELLED);
+	        reservation.setDeletedAt(LocalDateTime.now());
+	        
+	        resultDto.setMessage("cancled successfuly");
 		} catch (Exception e) {
 			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
 			e.printStackTrace();
@@ -130,7 +178,6 @@ public class ReservationServiceImpl implements ReservationService {
 																	.stream()
 																	.map(Reservation::toDto)
 																	.toList();
-					
 			
 			resultDto.setData(lists);
 		} catch (Exception e) {
@@ -142,7 +189,7 @@ public class ReservationServiceImpl implements ReservationService {
 		return resultDto;
 	}
 	
-	public ResultDto<List<ReservationDto>> statusList(ReservationStatus status, long roomId) {
+	public ResultDto<List<ReservationDto>> statusList(ReservationStatus status, Long roomId) {
 		ResultDto<List<ReservationDto>> resultDto = new ResultDto<>();
 		
 		try {
@@ -162,11 +209,13 @@ public class ReservationServiceImpl implements ReservationService {
 	}
 	
 	@Transactional
-	public ResultDto<ReservationDto> confirm(long reservationId, ReservationStatus status) {
+	public ResultDto<ReservationDto> confirm(Long reservationId, ReservationStatus status) {
 		ResultDto<ReservationDto> resultDto = new ResultDto<>();
 		
 		try {
-			Reservation reservation = reservationRepository.findById(reservationId).orElseThrow();
+			String username = securityUtils.getCurrentUsername();
+			
+			Reservation reservation = reservationRepository.findByIdAndUser_Username(reservationId, username);
 			
 			switch (status) {
 				case CONFIRMED -> {
@@ -213,7 +262,7 @@ public class ReservationServiceImpl implements ReservationService {
 		return resultDto;
 	}
 	
-	public ResultDto<List<ReservationDto>> statusCancledList(long roomId) {
+	public ResultDto<List<ReservationDto>> statusCancledList(Long roomId) {
 		ResultDto<List<ReservationDto>> resultDto = new ResultDto<>();
 		
 		try {
@@ -239,6 +288,5 @@ public class ReservationServiceImpl implements ReservationService {
 			throw new DuplicateReservationException("예약 시간대에 이미 예약이 되어있습니다.");			
 		}
 	}
-
 	
 }
