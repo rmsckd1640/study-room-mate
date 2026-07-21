@@ -6,4 +6,4 @@ spring.jpa.hibernate.ddl-auto=
 
 jwt.secret=
 jwt.access-token-expiration=1800000
-jwt.refresh-token-expiration=1209600000
+jwt.refresh-token-expiration=3600000

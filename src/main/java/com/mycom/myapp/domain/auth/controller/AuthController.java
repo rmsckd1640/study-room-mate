@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.mycom.myapp.domain.auth.dto.LoginRequest;
 import com.mycom.myapp.domain.auth.dto.LoginResponse;
+import com.mycom.myapp.domain.auth.dto.ReissueRequest;
 import com.mycom.myapp.domain.auth.service.AuthService;
 import com.mycom.myapp.global.common.dto.ResultDto;
 
@@ -33,6 +34,18 @@ public class AuthController {
                 .build();
 
         return ResponseEntity.status(HttpStatus.OK).body(result);
+    }
+
+    @PostMapping("/reissue")
+    public ResponseEntity<ResultDto<LoginResponse>> reissue(@Valid @RequestBody ReissueRequest request) {
+        LoginResponse response = authService.reissue(request);
+
+        ResultDto<LoginResponse> result = ResultDto.<LoginResponse>builder()
+                .message("토큰이 재발급되었습니다.")
+                .data(response)
+                .build();
+
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping("/logout")
