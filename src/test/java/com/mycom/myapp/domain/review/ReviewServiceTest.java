@@ -85,14 +85,14 @@ class ReviewServiceTest {
 		ReviewCreateRequest request = new ReviewCreateRequest(5L, 5, "최고예요");
 		Review savedReview = createReview(10L, member, room, 5, "최고예요");
 
-		given(memberRepository.findById(1L)).willReturn(Optional.of(member));
+		given(memberRepository.findByUsername("user1")).willReturn(Optional.of(member));
 		given(roomRepository.findById(5L)).willReturn(Optional.of(room));
 		given(reservationRepository.existsByMember_IdAndRoom_IdAndStatus(1L, 5L, ReservationStatus.CONFIRMED)).willReturn(true);
 		given(reviewRepository.existsByMember_IdAndRoom_Id(1L, 5L)).willReturn(false);
 		given(reviewRepository.save(any(Review.class))).willReturn(savedReview);
 
 		// when
-		ReviewResponseDto result = reviewService.createReview(1L, request);
+		ReviewResponseDto result = reviewService.createReview("user1", request);
 
 		// then
 		assertThat(result.rating()).isEqualTo(5);
@@ -106,12 +106,12 @@ class ReviewServiceTest {
 		// given
 		ReviewCreateRequest request = new ReviewCreateRequest(5L, 5, "최고예요");
 
-		given(memberRepository.findById(1L)).willReturn(Optional.of(member));
+		given(memberRepository.findByUsername("user1")).willReturn(Optional.of(member));
 		given(roomRepository.findById(5L)).willReturn(Optional.of(room));
 		given(reservationRepository.existsByMember_IdAndRoom_IdAndStatus(1L, 5L, ReservationStatus.CONFIRMED)).willReturn(false);
 
 		// when & then
-		assertThrows(ReviewNotAllowedException.class, () -> reviewService.createReview(1L, request));
+		assertThrows(ReviewNotAllowedException.class, () -> reviewService.createReview("user1", request));
 		verify(reviewRepository, never()).save(any(Review.class));
 	}
 
@@ -121,13 +121,13 @@ class ReviewServiceTest {
 		// given
 		ReviewCreateRequest request = new ReviewCreateRequest(5L, 5, "최고예요");
 
-		given(memberRepository.findById(1L)).willReturn(Optional.of(member));
+		given(memberRepository.findByUsername("user1")).willReturn(Optional.of(member));
 		given(roomRepository.findById(5L)).willReturn(Optional.of(room));
 		given(reservationRepository.existsByMember_IdAndRoom_IdAndStatus(1L, 5L, ReservationStatus.CONFIRMED)).willReturn(true);
 		given(reviewRepository.existsByMember_IdAndRoom_Id(1L, 5L)).willReturn(true);
 
 		// when & then
-		assertThrows(DuplicateReviewException.class, () -> reviewService.createReview(1L, request));
+		assertThrows(DuplicateReviewException.class, () -> reviewService.createReview("user1", request));
 		verify(reviewRepository, never()).save(any(Review.class));
 	}
 
@@ -136,10 +136,10 @@ class ReviewServiceTest {
 	void createReview_실패_회원없음() {
 		// given
 		ReviewCreateRequest request = new ReviewCreateRequest(5L, 5, "최고예요");
-		given(memberRepository.findById(999L)).willReturn(Optional.empty());
+		given(memberRepository.findByUsername("unknown")).willReturn(Optional.empty());
 
 		// when & then
-		assertThrows(UserNotFoundException.class, () -> reviewService.createReview(999L, request));
+		assertThrows(UserNotFoundException.class, () -> reviewService.createReview("unknown", request));
 	}
 
 	@Test
@@ -147,11 +147,11 @@ class ReviewServiceTest {
 	void createReview_실패_room없음() {
 		// given
 		ReviewCreateRequest request = new ReviewCreateRequest(999L, 5, "최고예요");
-		given(memberRepository.findById(1L)).willReturn(Optional.of(member));
+		given(memberRepository.findByUsername("user1")).willReturn(Optional.of(member));
 		given(roomRepository.findById(999L)).willReturn(Optional.empty());
 
 		// when & then
-		assertThrows(RoomNotFoundException.class, () -> reviewService.createReview(1L, request));
+		assertThrows(RoomNotFoundException.class, () -> reviewService.createReview("user1", request));
 	}
 
 	@Test
@@ -161,10 +161,11 @@ class ReviewServiceTest {
 		Review review = createReview(10L, member, room, 3, "그냥 그래요");
 		ReviewUpdateRequest request = new ReviewUpdateRequest(5, "다시 보니 최고예요");
 
+		given(memberRepository.findByUsername("user1")).willReturn(Optional.of(member));
 		given(reviewRepository.findById(10L)).willReturn(Optional.of(review));
 
 		// when
-		ReviewResponseDto result = reviewService.updateReview(1L, 10L, request);
+		ReviewResponseDto result = reviewService.updateReview("user1", 10L, request);
 
 		// then
 		assertThat(result.rating()).isEqualTo(5);
@@ -175,13 +176,17 @@ class ReviewServiceTest {
 	@DisplayName("본인이 작성하지 않은 리뷰를 수정하려 하면 ReviewAccessDeniedException이 발생한다")
 	void updateReview_실패_권한없음() {
 		// given
-		Review review = createReview(10L, member, room, 3, "그냥 그래요");
+		Member otherMember = Member.builder().username("user2").password("password2").email("user2@test.com").name("회원2").build();
+		ReflectionTestUtils.setField(otherMember, "id", 999L);
+
+		Review review = createReview(10L, member, room, 3, "그냥 그래요"); // 작성자는 member(id=1L)
 		ReviewUpdateRequest request = new ReviewUpdateRequest(5, "다시 보니 최고예요");
 
+		given(memberRepository.findByUsername("user2")).willReturn(Optional.of(otherMember));
 		given(reviewRepository.findById(10L)).willReturn(Optional.of(review));
 
-		// when & then - memberId=999는 이 리뷰의 작성자(1L)가 아님
-		assertThrows(ReviewAccessDeniedException.class, () -> reviewService.updateReview(999L, 10L, request));
+		// when & then - user2가 남의 리뷰(작성자 user1)를 수정하려 함
+		assertThrows(ReviewAccessDeniedException.class, () -> reviewService.updateReview("user2", 10L, request));
 	}
 
 	@Test
@@ -189,10 +194,11 @@ class ReviewServiceTest {
 	void deleteReview_성공() {
 		// given
 		Review review = createReview(10L, member, room, 3, "그냥 그래요");
+		given(memberRepository.findByUsername("user1")).willReturn(Optional.of(member));
 		given(reviewRepository.findById(10L)).willReturn(Optional.of(review));
 
 		// when
-		reviewService.deleteReview(1L, 10L);
+		reviewService.deleteReview("user1", 10L);
 
 		// then
 		verify(reviewRepository, times(1)).delete(review);
@@ -202,11 +208,15 @@ class ReviewServiceTest {
 	@DisplayName("본인이 작성하지 않은 리뷰를 삭제하려 하면 ReviewAccessDeniedException이 발생한다")
 	void deleteReview_실패_권한없음() {
 		// given
+		Member otherMember = Member.builder().username("user2").password("password2").email("user2@test.com").name("회원2").build();
+		ReflectionTestUtils.setField(otherMember, "id", 999L);
+
 		Review review = createReview(10L, member, room, 3, "그냥 그래요");
+		given(memberRepository.findByUsername("user2")).willReturn(Optional.of(otherMember));
 		given(reviewRepository.findById(10L)).willReturn(Optional.of(review));
 
 		// when & then
-		assertThrows(ReviewAccessDeniedException.class, () -> reviewService.deleteReview(999L, 10L));
+		assertThrows(ReviewAccessDeniedException.class, () -> reviewService.deleteReview("user2", 10L));
 		verify(reviewRepository, never()).delete(any(Review.class));
 	}
 

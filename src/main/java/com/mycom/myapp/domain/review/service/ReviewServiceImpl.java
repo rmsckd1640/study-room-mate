@@ -71,11 +71,11 @@ public class ReviewServiceImpl implements ReviewService {
 
 	@Override
 	@Transactional
-	public ReviewResponseDto createReview(Long memberId, ReviewCreateRequest request) {
-		Member member = findMemberOrThrow(memberId);
+	public ReviewResponseDto createReview(String username, ReviewCreateRequest request) {
+		Member member = memberRepository.findByUsername(username).orElseThrow(() -> new UserNotFoundException("존재하지 않는 회원입니다."));
 		Room room = findRoomOrThrow(request.roomId());
-		validateHasConfirmedReservation(memberId, request.roomId());
-		validateNotDuplicate(memberId, request.roomId());
+		validateHasConfirmedReservation(member.getId(), request.roomId());
+		validateNotDuplicate(member.getId(), request.roomId());
 		Review review = Review.builder().member(member).room(room).rating(request.rating()).content(request.content()).build();
 		Review saved = reviewRepository.save(review);
 		return ReviewResponseDto.from(saved);
@@ -83,18 +83,20 @@ public class ReviewServiceImpl implements ReviewService {
 
 	@Override
 	@Transactional
-	public ReviewResponseDto updateReview(Long memberId, Long reviewId, ReviewUpdateRequest request) {
+	public ReviewResponseDto updateReview(String username, Long reviewId, ReviewUpdateRequest request) {
+		Member member = memberRepository.findByUsername(username).orElseThrow(() -> new UserNotFoundException("존재하지 않는 회원입니다."));
 		Review review = findReviewOrThrow(reviewId);
-		validateOwner(review, memberId);
+		validateOwner(review, member.getId());
 		review.update(request.rating(), request.content());
 		return ReviewResponseDto.from(review);
 	}
 
 	@Override
 	@Transactional
-	public void deleteReview(Long memberId, Long reviewId) {
+	public void deleteReview(String username, Long reviewId) {
+		Member member = memberRepository.findByUsername(username).orElseThrow(() -> new UserNotFoundException("존재하지 않는 회원입니다."));
 		Review review = findReviewOrThrow(reviewId);
-		validateOwner(review, memberId);
+		validateOwner(review, member.getId());
 		reviewRepository.delete(review);
 	}
 
