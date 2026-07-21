@@ -57,6 +57,12 @@ public class SecurityConfig {
                 // 재발급: 호출 시점엔 Access Token이 이미 만료된 상태라 인증 자체가 불가능함.
                 // 대신 컨트롤러 내부에서 Refresh Token 자체를 별도로 검증한다.
                 .requestMatchers(HttpMethod.POST, "/api/auth/reissue").permitAll()
+                //swagger 허용
+                .requestMatchers(HttpMethod.GET, "/v2/api-docs/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/v3/api-docs/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/swagger-ui/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/swagger-ui.html").permitAll()
+                .requestMatchers(HttpMethod.GET, "/swagger-resources/**").permitAll()
                 // 그 외 모든 요청은 인증(유효한 Access Token)이 있어야 함
                 .anyRequest().authenticated()
             )
