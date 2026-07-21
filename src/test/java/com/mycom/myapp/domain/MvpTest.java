@@ -4,6 +4,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -18,6 +21,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import com.mycom.myapp.domain.auth.dto.LoginRequest;
 import com.mycom.myapp.domain.auth.dto.LoginResponse;
+import com.mycom.myapp.domain.reservation.dto.ReservationInsertRequest;
 import com.mycom.myapp.domain.room.dto.RoomCreateRequest;
 import com.mycom.myapp.domain.room.dto.RoomResponseDto;
 import com.mycom.myapp.global.common.dto.ResultDto;
@@ -25,6 +29,7 @@ import com.mycom.myapp.global.jwt.JwtProvider;
 
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
+import tools.jackson.databind.JavaType;
 import tools.jackson.databind.json.JsonMapper;
 
 @Slf4j
@@ -77,80 +82,76 @@ public class MvpTest {
 		        MemberResponse.class
 		);
 		*/
-		
-		// STEP 1 : 시작전 해당 username, password 그리고 ADMIN, USER Role ROW 생성
 		LoginRequest req1 = new LoginRequest("Admin", "password");
 		LoginRequest req2 = new LoginRequest("User", "password");
 		RoomCreateRequest rcreq = new RoomCreateRequest("8조", 3, 10000);
-		
-		// ADMIN 1 : 관리자 계정으로 로그인
-		log.debug("[STEP 1 : ]");
+
+		// STEP 1 : 관리자 계정으로 로그인
+		log.debug("[STEP 1 : 관리자 로그인]");
 		MvcResult admin = mockMvc.perform(post("/api/auth/login")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(req1)))
+				.andExpect(status().isOk())
 				.andReturn();
-		
-		LoginResponse responseAdmin = objectMapper.readValue(
-		        admin.getResponse().getContentAsString(),
-		        LoginResponse.class
-		);
-		
-		// LoginResponse responseAdmin = extractData(admin, new TypeReference<ResultDto<LoginResponse>>() {});
 
+		LoginResponse responseAdmin = extractData(admin, LoginResponse.class);
 		String accessTokenAdmin = responseAdmin.accessToken();
-		
-		// ADMIN 2 : 관리자 계정으로 스터디룸 생성
-		log.debug("[STEP 2 : ]");
-		MvcResult result1 = mockMvc.perform(post("/api/rooms/")
+
+		// STEP 2 : 관리자 계정으로 스터디룸 생성
+		log.debug("[STEP 2 : 스터디룸 생성]");
+		MvcResult result1 = mockMvc.perform(post("/api/rooms")
 				.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessTokenAdmin)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(rcreq)))
+				.andExpect(status().isCreated())
 				.andReturn();
-		
-		// USER 1 : 사용자 로그인
-		log.debug("[STEP 3 : ]");
+
+		RoomResponseDto room1 = extractData(result1, RoomResponseDto.class);
+
+		// STEP 3 : 사용자 로그인
+		log.debug("[STEP 3 : 사용자 로그인]");
 		MvcResult user = mockMvc.perform(post("/api/auth/login")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(req2)))
+				.andExpect(status().isOk())
 				.andReturn();
-		
-		LoginResponse responseUser = objectMapper.readValue(
-		        user.getResponse().getContentAsString(),
-		        LoginResponse.class
-		);
 
+		LoginResponse responseUser = extractData(user, LoginResponse.class);
 		String accessTokenUser = responseUser.accessToken();
-		
-		RoomResponseDto room1 = objectMapper.readValue(
-		        result1.getResponse().getContentAsString(),
-		        RoomResponseDto.class
-		);
-		
-		// USER 2 : 사용자 스터디룸 조회
-		log.debug("[STEP 4 : ]");
+
+		// STEP 4 : 사용자 스터디룸 조회
+		log.debug("[STEP 4 : 스터디룸 조회]");
 		MvcResult result2 = mockMvc.perform(get("/api/rooms/" + room1.id())
 				.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessTokenUser))
+				.andExpect(status().isOk())
 				.andReturn();
-		
-		// USER 3 : 해당 room 번호로 예약
-		RoomResponseDto roomResult = objectMapper.readValue(
-		        result2.getResponse().getContentAsString(),
-		        RoomResponseDto.class
+
+		RoomResponseDto roomResult = extractData(result2, RoomResponseDto.class);
+
+		// STEP 5 : 해당 room 번호로 예약
+		ReservationInsertRequest insertReq = new ReservationInsertRequest(
+				LocalDate.of(2026, 07, 21), 
+				LocalDateTime.of(2026, 07, 21, 20, 00), 
+				LocalDateTime.of(2026, 07, 21, 21, 00)
 		);
 		
-		log.debug("[STEP 5 : ]");
+		log.debug("[STEP 5 : 예약]");
 		mockMvc.perform(post("/api/reservation/" + roomResult.id())
-				.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessTokenUser))
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessTokenUser)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(insertReq)))
 				.andExpect(status().isOk());
 	}
 	
-	/*
-	private extractData() {
+	private <T> T extractData(MvcResult result, Class<T> dataClass) throws Exception {
+		JavaType jt = objectMapper.getTypeFactory().constructParametricType(ResultDto.class, dataClass);
+		
 		ResultDto<T> resultDto = objectMapper.readValue(
 				result.getResponse().getContentAsString(),
-				typeRef
+				jt
 		);
+		
+		return resultDto.getData();
 	}
-	*/
 	
 }
