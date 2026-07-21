@@ -12,11 +12,11 @@ import com.mycom.myapp.domain.review.dto.RoomRatingSummaryDto;
 
 public interface ReviewService {
 
-	ReviewResponseDto createReview(Long memberId, ReviewCreateRequest request);
+	ReviewResponseDto createReview(String username, ReviewCreateRequest request);
 
-	ReviewResponseDto updateReview(Long memberId, Long reviewId, ReviewUpdateRequest request);
+	ReviewResponseDto updateReview(String username, Long reviewId, ReviewUpdateRequest request);
 
-	void deleteReview(Long memberId, Long reviewId);
+	void deleteReview(String username, Long reviewId);
 
 	List<ReviewResponseDto> getReviewsByMember(Long memberId);
 
