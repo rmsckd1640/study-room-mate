@@ -1,10 +1,8 @@
 package com.mycom.myapp.domain.reservation.repository;
 
-import java.awt.print.Pageable;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -30,41 +28,33 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 			@Param("startTime") LocalDateTime startTime, 
 			@Param("endTime") LocalDateTime endTime
 	);
-
-	List<Reservation> findByRoomId(Long roomId);
-	Page<Reservation> findByRoomId(Long roomId, Pageable page);
 	
-	List<Reservation> findByMember_Username(String username);
-	Page<Reservation> findByRoomIdAndMember_Username(String username, Long roomId);
-	
+	// ADMIN 1. WHERE status = status
 	List<Reservation> findByStatus(ReservationStatus status);
-	Page<Reservation> findByStatus(ReservationStatus status, Pageable page);
 	
-	Reservation findByIdAndUser_Username(Long reservationId, String username);
-	
+	// ADMIN 2. WHERE status = status and room_id == roomId
 	List<Reservation> findByStatusAndRoomId(ReservationStatus status, Long roomId);
-	Page<Reservation> findByStatusAndRoomId(ReservationStatus status, Long roomId, Pageable page);
+
+	// USER 1. WHERE room_Id == roomId and deleted_at == null
+	List<Reservation> findByRoomIdAndDeletedAtIsNull(Long roomId);
 	
-	List<Reservation> findByStatusAndStartTimeAfter(
+	// USER 2. WHERE member.username == username and deleted_at == null
+	List<Reservation> findByMember_UsernameAndDeletedAtIsNull(String username);	
+		
+	// USER 3. WHERE room_id = roomId and member.username == username and deleted_at == null
+	List<Reservation> findByRoomIdAndMember_UsernameAndDeletedAtIsNull(Long roomId, String username);
+	
+	// USER 4. WHERE status = status and deleted_at == null and start_time > possibleTime
+	List<Reservation> findByStatusAndDeletedAtIsNullAndStartTimeAfter(
 			ReservationStatus status, 
 			LocalDateTime possibleTime
 	);
-	Page<Reservation> findByStatusAndStartTimeAfter(
-			ReservationStatus status, 
-			LocalDateTime possibleTime,
-			Pageable page
-	);
 	
-	List<Reservation> findByStatusAndRoomIdAndStartTimeAfter(
+	// USER 5. WHERE status = status and room_id = roomId and deleted_at == null and start_time > possibleTime
+	List<Reservation> findByStatusAndRoomIdAndDeletedAtIsNullAndStartTimeAfter(
 			ReservationStatus status, 
 			long roomId,
 			LocalDateTime possibleTime
-	);
-	Page<Reservation> findByStatusAndRoomIdAndStartTimeAfter(
-			ReservationStatus status, 
-			long roomId,
-			LocalDateTime possibleTime,
-			Pageable page
 	);
 		
 	boolean existsByMember_IdAndRoom_IdAndStatus(Long memberId, Long roomId, ReservationStatus status);
