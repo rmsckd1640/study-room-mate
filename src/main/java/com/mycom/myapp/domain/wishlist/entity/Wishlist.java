@@ -2,10 +2,7 @@ package com.mycom.myapp.domain.wishlist.entity;
 
 import java.time.LocalDateTime;
 
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.SQLDelete;
-import org.hibernate.annotations.SQLRestriction;
-import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import com.mycom.myapp.domain.member.entity.Member;
@@ -21,18 +18,17 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "wishlist")
+@Table(name = "wishlist", uniqueConstraints = {@UniqueConstraint(name = "uq_wishlist_member_room", columnNames = {"member_id", "room_id"})})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(AuditingEntityListener.class)
-@SQLDelete(sql = "UPDATE review SET deleted_at = NOW() WHERE id = ?")
-@SQLRestriction("deleted_at IS NULL")
 public class Wishlist {
 
 	@Id
@@ -47,14 +43,9 @@ public class Wishlist {
 	@JoinColumn(name = "room_id", nullable = false)
 	private Room room;
 
-	@CreationTimestamp
+	@CreatedDate
 	@Column(nullable = false, updatable = false)
 	private LocalDateTime createdAt;
-
-	@LastModifiedDate
-	private LocalDateTime updatedAt;
-
-	private LocalDateTime deletedAt;
 
 	@Builder
 	public Wishlist(Member member, Room room) {
