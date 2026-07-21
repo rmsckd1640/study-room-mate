@@ -112,4 +112,23 @@ public class ServiceTest {
 	    assertEquals(threadCount - 1, failCount.get());
 	}
 	
+	@Test
+	@Order(2)
+	public void confirm() {
+		
+	}
+
+	@Test
+	@Order(3)
+	public void cancle() {
+		
+	}
+	
+	@Test
+	@Order(4)
+	public void testList() {
+		
+	}
+	
+	
 }
