@@ -23,8 +23,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.mycom.myapp.domain.auth.controller.AuthController;
 import com.mycom.myapp.domain.auth.dto.LoginRequest;
 import com.mycom.myapp.domain.auth.dto.LoginResponse;
+import com.mycom.myapp.domain.auth.dto.ReissueRequest;
 import com.mycom.myapp.domain.auth.service.AuthService;
 import com.mycom.myapp.global.exception.InvalidCredentialsException;
+import com.mycom.myapp.global.exception.InvalidRefreshTokenException;
 import com.mycom.myapp.global.jwt.JwtAccessDeniedHandler;
 import com.mycom.myapp.global.jwt.JwtAuthFilter;
 import com.mycom.myapp.global.jwt.JwtAuthenticationEntryPoint;
@@ -105,6 +107,56 @@ class AuthControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("아이디 또는 비밀번호가 일치하지 않습니다."));
+    }
+
+    @Test
+    @DisplayName("유효한 RefreshToken이면 200과 새 토큰을 반환한다")
+    void reissue_성공() throws Exception {
+        // given
+        ReissueRequest request = new ReissueRequest("old-refresh-token");
+        LoginResponse response = new LoginResponse("new-access-token", "new-refresh-token");
+        given(authService.reissue(any(ReissueRequest.class))).willReturn(response);
+
+        // when & then
+        mockMvc.perform(post("/api/auth/reissue")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accessToken").value("new-access-token"))
+                .andExpect(jsonPath("$.data.refreshToken").value("new-refresh-token"));
+    }
+
+    @Test
+    @DisplayName("유효하지 않은 RefreshToken이면 401을 반환한다")
+    void reissue_실패_유효하지않은토큰() throws Exception {
+        // given
+        ReissueRequest request = new ReissueRequest("invalid-token");
+        given(authService.reissue(any(ReissueRequest.class)))
+                .willThrow(new InvalidRefreshTokenException("유효하지 않은 토큰입니다. 다시 로그인해주세요."));
+
+        // when & then
+        mockMvc.perform(post("/api/auth/reissue")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("유효하지 않은 토큰입니다. 다시 로그인해주세요."));
+    }
+
+    @Test
+    @DisplayName("필수 값이 빠진 채로 요청하면 400을 반환한다")
+    void reissue_실패_검증오류() throws Exception {
+        // given
+        String invalidRequestJson = """
+                {
+                    "refreshToken": ""
+                }
+                """;
+
+        // when & then
+        mockMvc.perform(post("/api/auth/reissue")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(invalidRequestJson))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
