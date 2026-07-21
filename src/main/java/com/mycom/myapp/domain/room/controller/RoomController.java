@@ -47,19 +47,19 @@ public class RoomController {
 	}
 
 	@GetMapping("/search/name")
-	public ResponseEntity<ResultDto<List<RoomResponseDto>>> searchByName(@RequestParam String name) {
+	public ResponseEntity<ResultDto<List<RoomResponseDto>>> searchByName(@RequestParam("name") String name) {
 		List<RoomResponseDto> data = roomService.searchByName(name);
 		return ResponseEntity.ok(ResultDto.<List<RoomResponseDto>>builder().message("검색 성공").data(data).build());
 	}
 
 	@GetMapping("/search/capacity")
-	public ResponseEntity<ResultDto<List<RoomResponseDto>>> searchByCapacity(@RequestParam Integer capacity) {
+	public ResponseEntity<ResultDto<List<RoomResponseDto>>> searchByCapacity(@RequestParam("capacity") Integer capacity) {
 		List<RoomResponseDto> data = roomService.searchByMinCapacity(capacity);
 		return ResponseEntity.ok(ResultDto.<List<RoomResponseDto>>builder().message("검색 성공").data(data).build());
 	}
 
 	@GetMapping("/search/price")
-	public ResponseEntity<ResultDto<List<RoomResponseDto>>> searchByPrice(@RequestParam Integer price) {
+	public ResponseEntity<ResultDto<List<RoomResponseDto>>> searchByPrice(@RequestParam("price") Integer price) {
 		List<RoomResponseDto> data = roomService.searchByMaxPrice(price);
 		return ResponseEntity.ok(ResultDto.<List<RoomResponseDto>>builder().message("검색 성공").data(data).build());
 	}
