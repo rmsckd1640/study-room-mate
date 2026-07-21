@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import java.time.LocalDateTime;
@@ -82,6 +83,24 @@ class AuthServiceImplTest {
         assertThat(response.refreshToken()).isEqualTo("refresh-token");
         verify(refreshTokenRepository).deleteByMember_Id(1L);
         verify(refreshTokenRepository).save(any());
+    }
+
+    @Test
+    @DisplayName("탈퇴한 회원이면 InvalidCredentialsException이 발생한다")
+    void login_실패_탈퇴한회원() {
+        // given
+        Member member = createMember();
+        member.delete();
+        LoginRequest request = new LoginRequest("chang123", "password1234");
+
+        given(memberRepository.findByUsername("chang123")).willReturn(Optional.of(member));
+        given(passwordEncoder.matches("password1234", "encoded-password")).willReturn(true);
+
+        // when & then
+        assertThatThrownBy(() -> authService.login(request))
+                .isInstanceOf(InvalidCredentialsException.class);
+
+        verify(refreshTokenRepository, never()).save(any());
     }
 
     @Test

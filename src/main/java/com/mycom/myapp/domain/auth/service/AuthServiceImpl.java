@@ -39,6 +39,11 @@ public class AuthServiceImpl implements AuthService {
             throw new InvalidCredentialsException("아이디 또는 비밀번호가 일치하지 않습니다.");
         }
 
+        // 탈퇴한 회원도 같은 메시지로 응답 (계정 열거 공격 방지 원칙을 동일하게 적용)
+        if (member.getDeletedAt() != null) {
+            throw new InvalidCredentialsException("아이디 또는 비밀번호가 일치하지 않습니다.");
+        }
+
         return issueTokens(member);
     }
 
