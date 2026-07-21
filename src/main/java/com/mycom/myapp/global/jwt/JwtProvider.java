@@ -1,5 +1,7 @@
 package com.mycom.myapp.global.jwt;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Date;
 
 import javax.crypto.SecretKey;
@@ -67,6 +69,11 @@ public class JwtProvider {
 
     public MemberRole getRole(String token) {
         return MemberRole.valueOf(parseClaims(token).get("role", String.class));
+    }
+
+    public LocalDateTime getExpiration(String token) {
+        Date expiration = parseClaims(token).getExpiration();
+        return LocalDateTime.ofInstant(expiration.toInstant(), ZoneId.systemDefault());
     }
 
     public boolean isValid(String token) {
