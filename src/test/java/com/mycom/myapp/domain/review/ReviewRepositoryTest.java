@@ -48,9 +48,9 @@ class ReviewRepositoryTest {
 
 		member2 = memberRepository.save(Member.builder().username("user2").password("password2").email("user2@test.com").name("회원2").build());
 
-		room1 = roomRepository.save(Room.builder().name("한강뷰 스튜디오").location("서울 성동구").capacity(4).price(150000).build());
+		room1 = roomRepository.save(Room.builder().name("한강뷰 스튜디오").capacity(4).price(150000).build());
 
-		room2 = roomRepository.save(Room.builder().name("해운대 오션뷰").location("부산 해운대구").capacity(6).price(300000).build());
+		room2 = roomRepository.save(Room.builder().name("해운대 오션뷰").capacity(6).price(300000).build());
 	}
 
 	private Review createReview(Member member, Room room, Integer rating, String content) {

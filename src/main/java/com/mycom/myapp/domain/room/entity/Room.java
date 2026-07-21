@@ -36,9 +36,6 @@ public class Room {
 	@Column(nullable = false, length = 255)
 	private String name;
 
-	@Column(nullable = false, length = 255)
-	private String location;
-
 	@Column(nullable = false)
 	private Integer capacity;
 
@@ -55,19 +52,15 @@ public class Room {
 	private LocalDateTime deletedAt;
 
 	@Builder
-	public Room(String name, String location, Integer capacity, Integer price) {
+	public Room(String name, Integer capacity, Integer price) {
 		this.name = name;
-		this.location = location;
 		this.capacity = capacity;
 		this.price = price;
 	}
 
-	public void update(String name, String location, Integer capacity, Integer price) {
+	public void update(String name, Integer capacity, Integer price) {
 		if (name == null || name.isBlank()) {
 			throw new IllegalArgumentException("이름은 비어있을 수 없습니다.");
-		}
-		if (location == null || location.isBlank()) {
-			throw new IllegalArgumentException("지역은 비어있을 수 없습니다.");
 		}
 		if (capacity == null || capacity <= 0) {
 			throw new IllegalArgumentException("수용 인원은 1명 이상이어야 합니다.");
@@ -77,7 +70,6 @@ public class Room {
 		}
 
 		this.name = name;
-		this.location = location;
 		this.capacity = capacity;
 		this.price = price;
 	}

@@ -24,16 +24,16 @@ class RoomRepositoryTest {
 	@Autowired
 	private RoomRepository roomRepository;
 
-	private Room createRoom(String name, String location, int capacity, int price) {
-		return Room.builder().name(name).location(location).capacity(capacity).price(price).build();
+	private Room createRoom(String name, int capacity, int price) {
+		return Room.builder().name(name).capacity(capacity).price(price).build();
 	}
 
 	@Test
 	@DisplayName("이름에 특정 키워드가 포함된 room을 조회한다")
 	void findByNameContaining_성공() {
 		// given
-		roomRepository.save(createRoom("한강뷰 스튜디오", "서울 성동구", 4, 150000));
-		roomRepository.save(createRoom("성수동 루프탑", "서울 성동구", 2, 200000));
+		roomRepository.save(createRoom("한강뷰 스튜디오", 4, 150000));
+		roomRepository.save(createRoom("성수동 루프탑", 2, 200000));
 
 		// when
 		List<Room> result = roomRepository.findByNameContaining("한강뷰");
@@ -44,27 +44,12 @@ class RoomRepositoryTest {
 	}
 
 	@Test
-	@DisplayName("지역에 특정 키워드가 포함된 room을 조회한다")
-	void findByLocationContaining_성공() {
-		// given
-		roomRepository.save(createRoom("한강뷰 스튜디오", "서울 성동구", 4, 150000));
-		roomRepository.save(createRoom("해운대 오션뷰", "부산 해운대구", 6, 300000));
-
-		// when
-		List<Room> result = roomRepository.findByLocationContaining("성동구");
-
-		// then
-		assertThat(result).hasSize(1);
-		assertThat(result.get(0).getLocation()).contains("성동구");
-	}
-
-	@Test
 	@DisplayName("특정 인원 수 이상을 수용하는 room만 조회한다")
 	void findByCapacityGreaterThanEqual_성공() {
 		// given
-		roomRepository.save(createRoom("2인실", "서울", 2, 100000));
-		roomRepository.save(createRoom("4인실", "서울", 4, 150000));
-		roomRepository.save(createRoom("6인실", "서울", 6, 200000));
+		roomRepository.save(createRoom("2인실", 2, 100000));
+		roomRepository.save(createRoom("4인실", 4, 150000));
+		roomRepository.save(createRoom("6인실", 6, 200000));
 
 		// when
 		List<Room> result = roomRepository.findByCapacityGreaterThanEqual(4);
@@ -78,9 +63,9 @@ class RoomRepositoryTest {
 	@DisplayName("특정 가격 이하인 room만 조회한다")
 	void findByPriceLessThanEqual_성공() {
 		// given
-		roomRepository.save(createRoom("저가형", "서울", 2, 80000));
-		roomRepository.save(createRoom("중가형", "서울", 4, 150000));
-		roomRepository.save(createRoom("고가형", "서울", 6, 300000));
+		roomRepository.save(createRoom("저가형", 2, 80000));
+		roomRepository.save(createRoom("중가형", 4, 150000));
+		roomRepository.save(createRoom("고가형", 6, 300000));
 
 		// when
 		List<Room> result = roomRepository.findByPriceLessThanEqual(150000);
@@ -95,7 +80,7 @@ class RoomRepositoryTest {
 	void findAll_페이징_성공() {
 		// given
 		for (int i = 1; i <= 15; i++) {
-			roomRepository.save(createRoom("room" + i, "서울", 2, 100000));
+			roomRepository.save(createRoom("room" + i, 2, 100000));
 		}
 
 		// when
@@ -111,7 +96,7 @@ class RoomRepositoryTest {
 	@DisplayName("삭제된 room은 조회 결과에서 제외된다 (SQLRestriction 검증)")
 	void 소프트_삭제된_room은_조회되지_않는다() {
 		// given
-		Room room = roomRepository.save(createRoom("삭제될 방", "서울", 2, 100000));
+		Room room = roomRepository.save(createRoom("삭제될 방", 2, 100000));
 		Long roomId = room.getId();
 
 		// when

@@ -42,7 +42,7 @@ class RoomControllerTest {
 	@DisplayName("존재하는 room을 조회하면 200과 데이터를 반환한다")
 	void getRoom_성공() throws Exception {
 		// given
-		RoomResponseDto response = new RoomResponseDto(1L, "한강뷰 스튜디오", "서울 성동구", 4, 150000, null);
+		RoomResponseDto response = new RoomResponseDto(1L, "한강뷰 스튜디오", 4, 150000, null);
 		given(roomService.getRoom(1L)).willReturn(response);
 
 		// when & then
@@ -80,8 +80,8 @@ class RoomControllerTest {
 	@DisplayName("정상적인 요청으로 room을 생성하면 201을 반환한다")
 	void create_성공() throws Exception {
 		// given
-		RoomCreateRequest request = new RoomCreateRequest("한강뷰 스튜디오", "서울 성동구", 4, 150000);
-		RoomResponseDto response = new RoomResponseDto(1L, "한강뷰 스튜디오", "서울 성동구", 4, 150000, null);
+		RoomCreateRequest request = new RoomCreateRequest("한강뷰 스튜디오", 4, 150000);
+		RoomResponseDto response = new RoomResponseDto(1L, "한강뷰 스튜디오", 4, 150000, null);
 		given(roomService.createRoom(any(RoomCreateRequest.class))).willReturn(response);
 
 		// when & then

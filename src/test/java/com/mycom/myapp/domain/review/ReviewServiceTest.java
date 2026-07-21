@@ -68,7 +68,7 @@ class ReviewServiceTest {
 		member = Member.builder().username("user1").password("password1").email("user1@test.com").name("회원1").build();
 		ReflectionTestUtils.setField(member, "id", 1L);
 
-		room = Room.builder().name("한강뷰 스튜디오").location("서울 성동구").capacity(4).price(150000).build();
+		room = Room.builder().name("한강뷰 스튜디오").capacity(4).price(150000).build();
 		ReflectionTestUtils.setField(room, "id", 5L);
 	}
 
