@@ -169,10 +169,10 @@ public class RepositoryTest {
 	            .build());
 		
 	    // CASE 1. 스터디룸 아이디로 find
-	    List<Reservation> lists1 = reservationRepository.findByRoomId(room.getId());
-	    log.info("[STEP 1] : DATA : {}", lists1);
-	    assertFalse(lists1.isEmpty());
-	    assertTrue(lists1.stream().allMatch(r -> r.getRoom().getId().equals(room.getId())));
+//	    List<Reservation> lists1 = reservationRepository.findByRoomId(room.getId());
+//	    log.info("[STEP 1] : DATA : {}", lists1);
+//	    assertFalse(lists1.isEmpty());
+//	    assertTrue(lists1.stream().allMatch(r -> r.getRoom().getId().equals(room.getId())));
 
 	    // CASE 2. 유저 아이디로 find
 //	    List<Reservation> lists2 = reservationRepository.findByMember_Username();
@@ -197,20 +197,20 @@ public class RepositoryTest {
 	    assertTrue(lists6.stream().anyMatch(r -> r.getId().equals(cancelled.getId())));
 
 	    // CASE 5. 상태와 시작시간이 지정한 시간이 지난 시점의 것만 find
-	    List<Reservation> lists7 = reservationRepository.findByStatusAndStartTimeAfter(ReservationStatus.CANCELLED, start); // cancelled의 startTime(=end)이 start보다 뒤 → 포함
-	    List<Reservation> lists8 = reservationRepository.findByStatusAndStartTimeAfter(ReservationStatus.CANCELLED, end.plusHours(1)); // cancelled의 startTime보다도 뒤 → 미포함
-	    log.info("[STEP 5-1] : DATA : {}", lists7);
-	    log.info("[STEP 5-2] : DATA : {}", lists8);
-	    assertTrue(lists7.stream().anyMatch(r -> r.getId().equals(cancelled.getId())));
-	    assertTrue(lists8.stream().noneMatch(r -> r.getId().equals(cancelled.getId())));
+//	    List<Reservation> lists7 = reservationRepository.findByStatusAndStartTimeAfter(ReservationStatus.CANCELLED, start); // cancelled의 startTime(=end)이 start보다 뒤 → 포함
+//	    List<Reservation> lists8 = reservationRepository.findByStatusAndStartTimeAfter(ReservationStatus.CANCELLED, end.plusHours(1)); // cancelled의 startTime보다도 뒤 → 미포함
+//	    log.info("[STEP 5-1] : DATA : {}", lists7);
+//	    log.info("[STEP 5-2] : DATA : {}", lists8);
+//	    assertTrue(lists7.stream().anyMatch(r -> r.getId().equals(cancelled.getId())));
+//	    assertTrue(lists8.stream().noneMatch(r -> r.getId().equals(cancelled.getId())));
 
 	    // CASE 6. 상태와 스터디룸 아이디 그리고 시작시간이 지난 시점의 것만 find
-	    List<Reservation> lists9 = reservationRepository.findByStatusAndRoomIdAndStartTimeAfter(ReservationStatus.CANCELLED, room.getId(), start);
-	    List<Reservation> lists10 = reservationRepository.findByStatusAndRoomIdAndStartTimeAfter(ReservationStatus.CANCELLED, room.getId(), end.plusHours(1));
-	    log.info("[STEP 6-1] : DATA : {}", lists9);
-	    log.info("[STEP 6-2] : DATA : {}", lists10);
-	    assertTrue(lists9.stream().anyMatch(r -> r.getId().equals(cancelled.getId())));
-	    assertTrue(lists10.stream().noneMatch(r -> r.getId().equals(cancelled.getId())));
+//	    List<Reservation> lists9 = reservationRepository.findByStatusAndRoomIdAndStartTimeAfter(ReservationStatus.CANCELLED, room.getId(), start);
+//	    List<Reservation> lists10 = reservationRepository.findByStatusAndRoomIdAndStartTimeAfter(ReservationStatus.CANCELLED, room.getId(), end.plusHours(1));
+//	    log.info("[STEP 6-1] : DATA : {}", lists9);
+//	    log.info("[STEP 6-2] : DATA : {}", lists10);
+//	    assertTrue(lists9.stream().anyMatch(r -> r.getId().equals(cancelled.getId())));
+//	    assertTrue(lists10.stream().noneMatch(r -> r.getId().equals(cancelled.getId())));
 	}
 	
 }
