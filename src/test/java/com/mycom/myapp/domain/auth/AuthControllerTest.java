@@ -2,6 +2,7 @@ package com.mycom.myapp.domain.auth;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
@@ -23,11 +24,14 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.mycom.myapp.domain.auth.controller.AuthController;
 import com.mycom.myapp.domain.auth.dto.LoginRequest;
 import com.mycom.myapp.domain.auth.dto.LoginResponse;
+import com.mycom.myapp.domain.auth.dto.PasswordResetConfirmRequest;
+import com.mycom.myapp.domain.auth.dto.PasswordResetRequest;
 import com.mycom.myapp.domain.auth.dto.ReissueRequest;
 import com.mycom.myapp.domain.auth.service.AuthService;
 import com.mycom.myapp.domain.member.dto.FindUsernameRequest;
 import com.mycom.myapp.domain.member.service.MemberService;
 import com.mycom.myapp.global.exception.InvalidCredentialsException;
+import com.mycom.myapp.global.exception.InvalidPasswordResetTokenException;
 import com.mycom.myapp.global.exception.InvalidRefreshTokenException;
 import com.mycom.myapp.global.exception.UserNotFoundException;
 import com.mycom.myapp.global.exception.WithdrawnMemberException;
@@ -210,6 +214,67 @@ class AuthControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("탈퇴한 회원입니다."));
+    }
+
+    @Test
+    @DisplayName("재설정 요청을 하면 200을 반환한다")
+    void requestPasswordReset_성공() throws Exception {
+        // given
+        PasswordResetRequest request = new PasswordResetRequest("chang@test.com");
+
+        // when & then
+        mockMvc.perform(post("/api/auth/password-reset/request")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("입력하신 이메일로 재설정 링크를 보냈습니다. 메일함을 확인해주세요."));
+    }
+
+    @Test
+    @DisplayName("이메일 형식이 잘못되면 400을 반환한다")
+    void requestPasswordReset_실패_검증오류() throws Exception {
+        // given
+        String invalidRequestJson = """
+                {
+                    "email": "invalid-email"
+                }
+                """;
+
+        // when & then
+        mockMvc.perform(post("/api/auth/password-reset/request")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(invalidRequestJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("유효한 토큰이면 200을 반환한다")
+    void confirmPasswordReset_성공() throws Exception {
+        // given
+        PasswordResetConfirmRequest request = new PasswordResetConfirmRequest("reset-token", "newpassword5678");
+
+        // when & then
+        mockMvc.perform(post("/api/auth/password-reset/confirm")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("비밀번호가 재설정되었습니다."));
+    }
+
+    @Test
+    @DisplayName("유효하지 않거나 만료된 토큰이면 401을 반환한다")
+    void confirmPasswordReset_실패_유효하지않은토큰() throws Exception {
+        // given
+        PasswordResetConfirmRequest request = new PasswordResetConfirmRequest("invalid-token", "newpassword5678");
+        willThrow(new InvalidPasswordResetTokenException("유효하지 않은 요청입니다. 다시 시도해주세요."))
+                .given(authService).confirmPasswordReset(any(PasswordResetConfirmRequest.class));
+
+        // when & then
+        mockMvc.perform(post("/api/auth/password-reset/confirm")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("유효하지 않은 요청입니다. 다시 시도해주세요."));
     }
 
     @Test

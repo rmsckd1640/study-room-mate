@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.mycom.myapp.domain.auth.dto.LoginRequest;
 import com.mycom.myapp.domain.auth.dto.LoginResponse;
+import com.mycom.myapp.domain.auth.dto.PasswordResetConfirmRequest;
+import com.mycom.myapp.domain.auth.dto.PasswordResetRequest;
 import com.mycom.myapp.domain.auth.dto.ReissueRequest;
 import com.mycom.myapp.domain.auth.service.AuthService;
 import com.mycom.myapp.domain.member.dto.FindUsernameRequest;
@@ -59,6 +61,31 @@ public class AuthController {
         ResultDto<String> result = ResultDto.<String>builder()
                 .message("아이디 조회 성공")
                 .data(username)
+                .build();
+
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/password-reset/request")
+    public ResponseEntity<ResultDto<Void>> requestPasswordReset(@Valid @RequestBody PasswordResetRequest request) {
+        authService.requestPasswordReset(request);
+
+        // 이메일 존재 여부와 무관하게 항상 동일한 응답 (계정 열거 공격 방지)
+        ResultDto<Void> result = ResultDto.<Void>builder()
+                .message("입력하신 이메일로 재설정 링크를 보냈습니다. 메일함을 확인해주세요.")
+                .data(null)
+                .build();
+
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/password-reset/confirm")
+    public ResponseEntity<ResultDto<Void>> confirmPasswordReset(@Valid @RequestBody PasswordResetConfirmRequest request) {
+        authService.confirmPasswordReset(request);
+
+        ResultDto<Void> result = ResultDto.<Void>builder()
+                .message("비밀번호가 재설정되었습니다.")
+                .data(null)
                 .build();
 
         return ResponseEntity.ok(result);
