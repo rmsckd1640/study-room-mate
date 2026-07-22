@@ -7,6 +7,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
@@ -270,5 +271,59 @@ class MemberServiceImplTest {
                 .isInstanceOf(InvalidCredentialsException.class);
 
         verify(refreshTokenRepository, never()).deleteByMember_Username(any());
+    }
+
+    @Test
+    @DisplayName("관리자는 전체 회원 목록을 조회한다")
+    void getAllMembers_성공() {
+        // given
+        given(memberRepository.findAll()).willReturn(List.of(createMember()));
+
+        // when
+        List<MemberResponse> response = memberService.getAllMembers();
+
+        // then
+        assertThat(response).hasSize(1);
+        assertThat(response.get(0).username()).isEqualTo("chang123");
+    }
+
+    @Test
+    @DisplayName("관리자는 소유권 검사 없이 회원 단건을 조회한다")
+    void getMember_성공() {
+        // given
+        Member member = createMember();
+        given(memberRepository.findById(1L)).willReturn(Optional.of(member));
+
+        // when
+        MemberResponse response = memberService.getMember(1L);
+
+        // then
+        assertThat(response.username()).isEqualTo("chang123");
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 회원을 조회하면 UserNotFoundException이 발생한다")
+    void getMember_실패_존재하지않는회원() {
+        // given
+        given(memberRepository.findById(999L)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> memberService.getMember(999L))
+                .isInstanceOf(UserNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("관리자는 비밀번호 확인 없이 회원을 강제 탈퇴시킨다")
+    void adminWithdraw_성공() {
+        // given
+        Member member = createMember();
+        given(memberRepository.findById(1L)).willReturn(Optional.of(member));
+
+        // when
+        memberService.adminWithdraw(1L);
+
+        // then
+        assertThat(member.getDeletedAt()).isNotNull();
+        verify(refreshTokenRepository).deleteByMember_Username("chang123");
     }
 }
