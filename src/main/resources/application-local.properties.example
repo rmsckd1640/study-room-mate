@@ -7,3 +7,6 @@ spring.jpa.hibernate.ddl-auto=
 jwt.secret=
 jwt.access-token-expiration=1800000
 jwt.refresh-token-expiration=3600000
+
+toss.payment.toss-secret-key=
+toss.payment.base-url=https://api.tosspayments.com/v1
