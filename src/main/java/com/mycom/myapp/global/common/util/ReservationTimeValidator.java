@@ -16,12 +16,13 @@ public class ReservationTimeValidator implements ConstraintValidator<ValidReserv
 	public boolean isValid(ReservationInsertRequest request, ConstraintValidatorContext context) {
 		LocalDateTime start = request.startTime();
 		LocalDateTime end = request.endTime();
-		long minutes = Duration.between(start, end).toMinutes();
-		
+
 		if (start == null || end == null) {
 			return true;
 		}
-		
+
+		long minutes = Duration.between(start, end).toMinutes();
+
 		context.disableDefaultConstraintViolation();
 		
 		if (start.getMinute() != 0 || start.getSecond() != 0 || end.getMinute() != 0 || end.getSecond() != 0) {

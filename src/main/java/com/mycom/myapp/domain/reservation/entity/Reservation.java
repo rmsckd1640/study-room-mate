@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 import org.hibernate.annotations.CreationTimestamp;
 
 import com.mycom.myapp.domain.member.entity.Member;
-import com.mycom.myapp.domain.reservation.dto.ReservationDto;
+import com.mycom.myapp.domain.reservation.dto.ReservationResponse;
 import com.mycom.myapp.domain.room.entity.Room;
 import com.mycom.myapp.global.common.enums.ReservationStatus;
 
@@ -47,7 +47,7 @@ public class Reservation {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "room_id", nullable = false)
     private Room room;
-	
+
 	@Column(nullable = false, name = "reservation_date")
 	private LocalDate reservationDate;
 	
@@ -71,8 +71,8 @@ public class Reservation {
 	@Column(name = "deleted_at")
 	private LocalDateTime deletedAt;
 	
-	public ReservationDto toDto() {
-	    return ReservationDto.builder()
+	public ReservationResponse toResponse() {
+	    return ReservationResponse.builder()
 	            .id(this.id)
 	            .roomId(this.room.getId())
 	            .reservationDate(this.reservationDate)
@@ -82,13 +82,20 @@ public class Reservation {
 	            .build();
 	}
 
-	public void changeStatus(ReservationStatus newStatus) {
-	    if (this.status == ReservationStatus.CANCELLED) {
-	        throw new IllegalStateException("이미 취소된 예약입니다.");
-	    }
+	public void cancel() {
+		this.status = ReservationStatus.CANCELLED;
+	}
 
-	    this.status = newStatus;
-	    this.updatedAt = LocalDateTime.now();
+	public void paymentDone() {
+		this.status = ReservationStatus.PAYMENT_DONE;
+	}
+	
+	public void confirm() {
+		this.status = ReservationStatus.CONFIRMED;
+	}
+	
+	public void reject() {
+		this.status = ReservationStatus.REJECTED;
 	}
 	
 }
