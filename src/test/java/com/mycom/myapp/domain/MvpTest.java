@@ -7,6 +7,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import com.mycom.myapp.domain.member.entity.Member;
+import com.mycom.myapp.domain.member.entity.MemberRole;
+import com.mycom.myapp.domain.member.repository.MemberRepository;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -16,6 +19,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -46,6 +50,12 @@ public class MvpTest {
 	
 	@Autowired
 	private MockMvc mockMvc;
+
+	@Autowired
+	private MemberRepository memberRepository;
+
+	@Autowired
+	private PasswordEncoder passwordEncoder;
 	
 	/*
 	 * ADMIN -> create room -> 승인하고 -> 회원 로그인하고 -> 방 목록 조회 -> 예약
@@ -54,34 +64,24 @@ public class MvpTest {
 	@Order(1)
 	@Transactional
 	public void testMVC1() throws Exception {
-		
-		/*
-		INSERT INTO member (username, password, email, name, role, grade, created_at) VALUES ('Admin','password', 'email@test.com', 'name', 'ADMIN', 'BRONZE', CURRENT_TIMESTAMP());
-		INSERT INTO member (username,password,email,name,role,grade,created_at) VALUES ('User','password','email@testUser.com','names','USER','BRONZE',CURRENT_TIMESTAMP()); 
-		
-		SignupRequest signUpAdmin = new SignupRequest("ADMIN", "password", "email@test.com", "admin");
-		SignupRequest signUpUser = new SignupRequest("USER", "password", "email@testuser.com", "user");
-		
-		MvcResult adminAcc = mockMvc.perform(post("/api/members")
-				.contentType(MediaType.APPLICATION_JSON)
-				.content(objectMapper.writeValueAsString(signUpAdmin)))
-				.andReturn();
-		
-		MvcResult userAcc = mockMvc.perform(post("/api/members")
-				.contentType(MediaType.APPLICATION_JSON)
-				.content(objectMapper.writeValueAsString(signUpUser)))
-				.andReturn();
-		
-		MemberResponse response1 = objectMapper.readValue(
-		        adminAcc.getResponse().getContentAsString(),
-		        MemberResponse.class
-		);
-		
-		MemberResponse response2 = objectMapper.readValue(
-		        userAcc.getResponse().getContentAsString(),
-		        MemberResponse.class
-		);
-		*/
+
+		// STEP 0 : 테스트용 계정 직접 삽입
+		memberRepository.save(Member.builder()
+				.username("Admin")
+				.password(passwordEncoder.encode("password"))
+				.email("admin@test.com")
+				.name("admin")
+				.role(MemberRole.ADMIN)
+				.build());
+
+		memberRepository.save(Member.builder()
+				.username("User")
+				.password(passwordEncoder.encode("password"))
+				.email("user@test.com")
+				.name("user")
+				.role(MemberRole.USER)
+				.build());
+
 		LoginRequest req1 = new LoginRequest("Admin", "password");
 		LoginRequest req2 = new LoginRequest("User", "password");
 		RoomCreateRequest rcreq = new RoomCreateRequest("8조", 3, 10000);
@@ -129,10 +129,13 @@ public class MvpTest {
 		RoomResponseDto roomResult = extractData(result2, RoomResponseDto.class);
 
 		// STEP 5 : 해당 room 번호로 예약
+		LocalDateTime start = LocalDateTime.now().plusDays(1).withHour(20).withMinute(0).withSecond(0).withNano(0);
+		LocalDateTime end = start.plusHours(1);
+
 		ReservationInsertRequest insertReq = new ReservationInsertRequest(
-				LocalDate.of(2026, 07, 21), 
-				LocalDateTime.of(2026, 07, 21, 20, 00), 
-				LocalDateTime.of(2026, 07, 21, 21, 00)
+				start.toLocalDate(),
+				start,
+				end
 		);
 		
 		log.debug("[STEP 5 : 예약]");
