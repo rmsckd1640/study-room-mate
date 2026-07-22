@@ -22,6 +22,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.mycom.myapp.domain.auth.repository.RefreshTokenRepository;
+import com.mycom.myapp.domain.member.dto.FindUsernameRequest;
 import com.mycom.myapp.domain.member.dto.MemberResponse;
 import com.mycom.myapp.domain.member.dto.MemberUpdateRequest;
 import com.mycom.myapp.domain.member.dto.PasswordChangeRequest;
@@ -35,6 +36,7 @@ import com.mycom.myapp.global.exception.DuplicateEmailException;
 import com.mycom.myapp.global.exception.DuplicateUsernameException;
 import com.mycom.myapp.global.exception.InvalidCredentialsException;
 import com.mycom.myapp.global.exception.UserNotFoundException;
+import com.mycom.myapp.global.exception.WithdrawnMemberException;
 
 @ExtendWith(MockitoExtension.class)
 class MemberServiceImplTest {
@@ -271,6 +273,47 @@ class MemberServiceImplTest {
                 .isInstanceOf(InvalidCredentialsException.class);
 
         verify(refreshTokenRepository, never()).deleteByMember_Username(any());
+    }
+
+    @Test
+    @DisplayName("이름과 이메일이 일치하면 아이디를 반환한다")
+    void findUsername_성공() {
+        // given
+        Member member = createMember();
+        FindUsernameRequest request = new FindUsernameRequest("창", "chang@test.com");
+        given(memberRepository.findByNameAndEmail("창", "chang@test.com")).willReturn(Optional.of(member));
+
+        // when
+        String username = memberService.findUsername(request);
+
+        // then
+        assertThat(username).isEqualTo("chang123");
+    }
+
+    @Test
+    @DisplayName("일치하는 회원이 없으면 UserNotFoundException이 발생한다")
+    void findUsername_실패_일치하는회원없음() {
+        // given
+        FindUsernameRequest request = new FindUsernameRequest("없음", "none@test.com");
+        given(memberRepository.findByNameAndEmail("없음", "none@test.com")).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> memberService.findUsername(request))
+                .isInstanceOf(UserNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("탈퇴한 회원이면 WithdrawnMemberException이 발생한다")
+    void findUsername_실패_탈퇴한회원() {
+        // given
+        Member member = createMember();
+        member.delete();
+        FindUsernameRequest request = new FindUsernameRequest("창", "chang@test.com");
+        given(memberRepository.findByNameAndEmail("창", "chang@test.com")).willReturn(Optional.of(member));
+
+        // when & then
+        assertThatThrownBy(() -> memberService.findUsername(request))
+                .isInstanceOf(WithdrawnMemberException.class);
     }
 
     @Test

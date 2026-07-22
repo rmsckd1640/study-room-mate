@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.mycom.myapp.domain.auth.repository.RefreshTokenRepository;
+import com.mycom.myapp.domain.member.dto.FindUsernameRequest;
 import com.mycom.myapp.domain.member.dto.MemberResponse;
 import com.mycom.myapp.domain.member.dto.MemberUpdateRequest;
 import com.mycom.myapp.domain.member.dto.PasswordChangeRequest;
@@ -19,6 +20,7 @@ import com.mycom.myapp.global.exception.DuplicateEmailException;
 import com.mycom.myapp.global.exception.DuplicateUsernameException;
 import com.mycom.myapp.global.exception.InvalidCredentialsException;
 import com.mycom.myapp.global.exception.UserNotFoundException;
+import com.mycom.myapp.global.exception.WithdrawnMemberException;
 
 import lombok.RequiredArgsConstructor;
 
@@ -103,6 +105,19 @@ public class MemberServiceImpl implements MemberService {
         member.delete();
         // 탈퇴하면 로그인 상태도 같이 끊어야 하므로 Refresh Token도 정리
         refreshTokenRepository.deleteByMember_Username(requestUsername);
+    }
+
+    @Override
+    public String findUsername(FindUsernameRequest request) {
+        Member member = memberRepository.findByNameAndEmail(request.name(), request.email())
+                .orElseThrow(() -> new UserNotFoundException("일치하는 회원 정보가 없습니다."));
+
+        // 로그인과 달리 아이디 찾기는 탈퇴 여부를 명확히 알려주기로 합의된 정책
+        if (member.getDeletedAt() != null) {
+            throw new WithdrawnMemberException("탈퇴한 회원입니다.");
+        }
+
+        return member.getUsername();
     }
 
     @Override
