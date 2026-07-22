@@ -3,6 +3,7 @@ package com.mycom.myapp.domain.reservation.service;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
+import com.mycom.myapp.domain.member.entity.Member;
 import com.mycom.myapp.domain.payment.dto.TossPaymentResponse;
 import com.mycom.myapp.domain.payment.entity.Payment;
 import com.mycom.myapp.domain.payment.repository.PaymentRepository;
@@ -37,6 +38,10 @@ public class ReservationAdminServiceImpl implements ReservationAdminService {
 	        }
 
 			reservation.confirm();
+
+			Member member = reservation.getMember();
+			long confirmedCount = reservationRepository.countByMember_IdAndStatus(member.getId(), ReservationStatus.CONFIRMED);
+			member.updateGrade(confirmedCount);
 		} catch (Exception e) {
 			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
 			e.printStackTrace();

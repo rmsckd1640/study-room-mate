@@ -21,6 +21,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.mycom.myapp.domain.member.entity.Member;
+import com.mycom.myapp.domain.member.entity.MemberGrade;
 import com.mycom.myapp.domain.member.repository.MemberRepository;
 import com.mycom.myapp.domain.payment.dto.TossPaymentResponse;
 import com.mycom.myapp.domain.payment.entity.Payment;
@@ -94,6 +95,37 @@ public class ReservationAdminServiceTest {
 
 		assertNull(result.getMessage());
 		assertEquals(ReservationStatus.CONFIRMED, reservationRepository.findById(reservation.getId()).orElseThrow().getStatus());
+	}
+
+	@Test
+	public void confirm_확정하면_회원_등급이_조정된다() {
+		Room room = roomRepository.save(random.randomRoom());
+		Member member = memberRepository.save(random.randomMember());
+
+		// 이미 확정된 예약 4건 (직접 리포지토리로 삽입, 겹침 검증 우회)
+		for (int i = 0; i < 4; i++) {
+			reservationRepository.save(Reservation.builder()
+					.room(room).member(member)
+					.status(ReservationStatus.CONFIRMED)
+					.reservationDate(LocalDate.of(2026, 9, 1).plusDays(i))
+					.startTime(LocalDateTime.of(2026, 9, 1, 10, 0).plusDays(i))
+					.endTime(LocalDateTime.of(2026, 9, 1, 11, 0).plusDays(i))
+					.build());
+		}
+
+		Reservation toConfirm = reservationRepository.save(Reservation.builder()
+				.room(room).member(member)
+				.status(ReservationStatus.PAYMENT_DONE)
+				.reservationDate(LocalDate.of(2026, 9, 10))
+				.startTime(LocalDateTime.of(2026, 9, 10, 10, 0))
+				.endTime(LocalDateTime.of(2026, 9, 10, 11, 0))
+				.build());
+
+		reservationAdminService.confirm(toConfirm.getId(), ReservationStatus.CONFIRMED);
+
+		// 확정 4건 + 방금 확정한 1건 = 5건 -> SILVER
+		Member updated = memberRepository.findById(member.getId()).orElseThrow();
+		assertEquals(MemberGrade.SILVER, updated.getGrade());
 	}
 
 	@Test
