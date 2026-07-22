@@ -1,5 +1,7 @@
 package com.mycom.myapp.domain.member.service;
 
+import java.util.List;
+
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -101,6 +103,27 @@ public class MemberServiceImpl implements MemberService {
         member.delete();
         // 탈퇴하면 로그인 상태도 같이 끊어야 하므로 Refresh Token도 정리
         refreshTokenRepository.deleteByMember_Username(requestUsername);
+    }
+
+    @Override
+    public List<MemberResponse> getAllMembers() {
+        return memberRepository.findAll().stream()
+                .map(MemberResponse::from)
+                .toList();
+    }
+
+    @Override
+    public MemberResponse getMember(Long id) {
+        return MemberResponse.from(findMemberOrThrow(id));
+    }
+
+    @Override
+    @Transactional
+    public void adminWithdraw(Long id) {
+        Member member = findMemberOrThrow(id);
+
+        member.delete();
+        refreshTokenRepository.deleteByMember_Username(member.getUsername());
     }
 
     private Member findMemberOrThrow(Long id) {
