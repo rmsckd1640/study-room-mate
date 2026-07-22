@@ -25,8 +25,12 @@ import com.mycom.myapp.domain.auth.dto.LoginRequest;
 import com.mycom.myapp.domain.auth.dto.LoginResponse;
 import com.mycom.myapp.domain.auth.dto.ReissueRequest;
 import com.mycom.myapp.domain.auth.service.AuthService;
+import com.mycom.myapp.domain.member.dto.FindUsernameRequest;
+import com.mycom.myapp.domain.member.service.MemberService;
 import com.mycom.myapp.global.exception.InvalidCredentialsException;
 import com.mycom.myapp.global.exception.InvalidRefreshTokenException;
+import com.mycom.myapp.global.exception.UserNotFoundException;
+import com.mycom.myapp.global.exception.WithdrawnMemberException;
 import com.mycom.myapp.global.jwt.JwtAccessDeniedHandler;
 import com.mycom.myapp.global.jwt.JwtAuthFilter;
 import com.mycom.myapp.global.jwt.JwtAuthenticationEntryPoint;
@@ -45,6 +49,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private AuthService authService;
+
+    @MockitoBean
+    private MemberService memberService;
 
     // SecurityConfig 생성자가 요구하는 빈들 - addFilters=false라 실제로 호출되진 않고,
     // ApplicationContext 로딩(SecurityConfig 생성)을 위해서만 채워준다
@@ -157,6 +164,52 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalidRequestJson))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("이름/이메일이 일치하면 200과 아이디를 반환한다")
+    void findUsername_성공() throws Exception {
+        // given
+        FindUsernameRequest request = new FindUsernameRequest("창", "chang@test.com");
+        given(memberService.findUsername(any(FindUsernameRequest.class))).willReturn("chang123");
+
+        // when & then
+        mockMvc.perform(post("/api/auth/find-username")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").value("chang123"));
+    }
+
+    @Test
+    @DisplayName("일치하는 회원이 없으면 404를 반환한다")
+    void findUsername_실패_일치하는회원없음() throws Exception {
+        // given
+        FindUsernameRequest request = new FindUsernameRequest("없음", "none@test.com");
+        given(memberService.findUsername(any(FindUsernameRequest.class)))
+                .willThrow(new UserNotFoundException("일치하는 회원 정보가 없습니다."));
+
+        // when & then
+        mockMvc.perform(post("/api/auth/find-username")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("탈퇴한 회원이면 409를 반환한다")
+    void findUsername_실패_탈퇴한회원() throws Exception {
+        // given
+        FindUsernameRequest request = new FindUsernameRequest("창", "chang@test.com");
+        given(memberService.findUsername(any(FindUsernameRequest.class)))
+                .willThrow(new WithdrawnMemberException("탈퇴한 회원입니다."));
+
+        // when & then
+        mockMvc.perform(post("/api/auth/find-username")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("탈퇴한 회원입니다."));
     }
 
     @Test
