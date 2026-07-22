@@ -10,15 +10,15 @@ import com.mycom.myapp.domain.room.dto.RoomResponseDto;
 import com.mycom.myapp.domain.room.dto.RoomUpdateRequest;
 
 public interface RoomService {
-	RoomResponseDto getRoom(Long roomId);
+	RoomResponseDto getRoom(String username, Long roomId);
 
-	Page<RoomResponseDto> getRooms(Pageable pageable);
+	Page<RoomResponseDto> getRooms(String username, Pageable pageable);
 
-	List<RoomResponseDto> searchByName(String name);
+	List<RoomResponseDto> searchByName(String username, String name);
 
-	List<RoomResponseDto> searchByMinCapacity(Integer capacity);
+	List<RoomResponseDto> searchByMinCapacity(String username, Integer capacity);
 
-	List<RoomResponseDto> searchByMaxPrice(Integer price);
+	List<RoomResponseDto> searchByMaxPrice(String username, Integer price);
 
 	RoomResponseDto createRoom(RoomCreateRequest request);
 
