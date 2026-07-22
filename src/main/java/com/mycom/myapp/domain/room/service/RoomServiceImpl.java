@@ -7,12 +7,16 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.mycom.myapp.domain.member.entity.Member;
+import com.mycom.myapp.domain.member.entity.MemberGrade;
+import com.mycom.myapp.domain.member.repository.MemberRepository;
 import com.mycom.myapp.domain.room.dto.RoomCreateRequest;
 import com.mycom.myapp.domain.room.dto.RoomResponseDto;
 import com.mycom.myapp.domain.room.dto.RoomUpdateRequest;
 import com.mycom.myapp.domain.room.entity.Room;
 import com.mycom.myapp.domain.room.repository.RoomRepository;
 import com.mycom.myapp.global.exception.RoomNotFoundException;
+import com.mycom.myapp.global.exception.UserNotFoundException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,30 +29,42 @@ public class RoomServiceImpl implements RoomService {
 
 	private final RoomRepository roomRepository;
 
+	private final MemberRepository memberRepository;
+
+	private MemberGrade getMemberGrade(String username) {
+		Member member = memberRepository.findByUsername(username).orElseThrow(() -> new UserNotFoundException("존재하지 않는 회원입니다."));
+		return member.getGrade();
+	}
+
 	@Override
-	public RoomResponseDto getRoom(Long roomId) {
+	public RoomResponseDto getRoom(String username, Long roomId) {
 		Room room = findRoomOrThrow(roomId);
-		return RoomResponseDto.from(room);
+		MemberGrade grade = getMemberGrade(username);
+		return RoomResponseDto.from(room, grade.applyDiscount(room.getPrice()));
 	}
 
 	@Override
-	public Page<RoomResponseDto> getRooms(Pageable pageable) {
-		return roomRepository.findAll(pageable).map(RoomResponseDto::from);
+	public Page<RoomResponseDto> getRooms(String username, Pageable pageable) {
+		MemberGrade grade = getMemberGrade(username);
+		return roomRepository.findAll(pageable).map(dto -> RoomResponseDto.from(dto, grade.applyDiscount(dto.getPrice())));
 	}
 
 	@Override
-	public List<RoomResponseDto> searchByName(String name) {
-		return roomRepository.findByNameContaining(name).stream().map(RoomResponseDto::from).toList();
+	public List<RoomResponseDto> searchByName(String username, String name) {
+		MemberGrade grade = getMemberGrade(username);
+		return roomRepository.findByNameContaining(name).stream().map(dto -> RoomResponseDto.from(dto, grade.applyDiscount(dto.getPrice()))).toList();
 	}
 
 	@Override
-	public List<RoomResponseDto> searchByMinCapacity(Integer capacity) {
-		return roomRepository.findByCapacityGreaterThanEqual(capacity).stream().map(RoomResponseDto::from).toList();
+	public List<RoomResponseDto> searchByMinCapacity(String username, Integer capacity) {
+		MemberGrade grade = getMemberGrade(username);
+		return roomRepository.findByCapacityGreaterThanEqual(capacity).stream().map(dto -> RoomResponseDto.from(dto, grade.applyDiscount(dto.getPrice()))).toList();
 	}
 
 	@Override
-	public List<RoomResponseDto> searchByMaxPrice(Integer price) {
-		return roomRepository.findByPriceLessThanEqual(price).stream().map(RoomResponseDto::from).toList();
+	public List<RoomResponseDto> searchByMaxPrice(String username, Integer price) {
+		MemberGrade grade = getMemberGrade(username);
+		return roomRepository.findByPriceLessThanEqual(price).stream().map(dto -> RoomResponseDto.from(dto, grade.applyDiscount(dto.getPrice()))).toList();
 	}
 
 	@Override
@@ -56,7 +72,7 @@ public class RoomServiceImpl implements RoomService {
 	public RoomResponseDto createRoom(RoomCreateRequest request) {
 		Room room = request.toEntity();
 		Room saved = roomRepository.save(room);
-		return RoomResponseDto.from(saved);
+		return RoomResponseDto.from(saved, null);
 	}
 
 	@Override
@@ -64,7 +80,7 @@ public class RoomServiceImpl implements RoomService {
 	public RoomResponseDto updateRoom(Long roomId, RoomUpdateRequest request) {
 		Room room = findRoomOrThrow(roomId);
 		room.update(request.name(), request.capacity(), request.price());
-		return RoomResponseDto.from(room);
+		return RoomResponseDto.from(room, null);
 	}
 
 	@Override

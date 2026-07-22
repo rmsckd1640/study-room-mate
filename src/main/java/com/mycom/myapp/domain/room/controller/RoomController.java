@@ -9,6 +9,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -37,31 +38,36 @@ public class RoomController {
 
 	@GetMapping("/{id}")
 	public ResponseEntity<ResultDto<RoomResponseDto>> getRoom(@PathVariable("id") Long id) {
-		RoomResponseDto data = roomService.getRoom(id);
+		String username = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+		RoomResponseDto data = roomService.getRoom(username, id);
 		return ResponseEntity.ok(ResultDto.<RoomResponseDto>builder().message("조회 성공").data(data).build());
 	}
 
 	@GetMapping
 	public ResponseEntity<ResultDto<Page<RoomResponseDto>>> getRooms(@PageableDefault(size = 20, sort = "name", direction = Sort.Direction.DESC) Pageable pageable) {
-		Page<RoomResponseDto> data = roomService.getRooms(pageable);
+		String username = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+		Page<RoomResponseDto> data = roomService.getRooms(username, pageable);
 		return ResponseEntity.ok(ResultDto.<Page<RoomResponseDto>>builder().message("조회 성공").data(data).build());
 	}
 
 	@GetMapping("/search/name")
 	public ResponseEntity<ResultDto<List<RoomResponseDto>>> searchByName(@RequestParam("name") String name) {
-		List<RoomResponseDto> data = roomService.searchByName(name);
+		String username = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+		List<RoomResponseDto> data = roomService.searchByName(username, name);
 		return ResponseEntity.ok(ResultDto.<List<RoomResponseDto>>builder().message("검색 성공").data(data).build());
 	}
 
 	@GetMapping("/search/capacity")
 	public ResponseEntity<ResultDto<List<RoomResponseDto>>> searchByCapacity(@RequestParam("capacity") Integer capacity) {
-		List<RoomResponseDto> data = roomService.searchByMinCapacity(capacity);
+		String username = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+		List<RoomResponseDto> data = roomService.searchByMinCapacity(username, capacity);
 		return ResponseEntity.ok(ResultDto.<List<RoomResponseDto>>builder().message("검색 성공").data(data).build());
 	}
 
 	@GetMapping("/search/price")
 	public ResponseEntity<ResultDto<List<RoomResponseDto>>> searchByPrice(@RequestParam("price") Integer price) {
-		List<RoomResponseDto> data = roomService.searchByMaxPrice(price);
+		String username = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+		List<RoomResponseDto> data = roomService.searchByMaxPrice(username, price);
 		return ResponseEntity.ok(ResultDto.<List<RoomResponseDto>>builder().message("검색 성공").data(data).build());
 	}
 
