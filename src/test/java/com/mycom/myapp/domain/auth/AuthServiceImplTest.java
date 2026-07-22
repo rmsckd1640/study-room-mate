@@ -3,6 +3,7 @@ package com.mycom.myapp.domain.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -21,16 +22,22 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.mycom.myapp.domain.auth.dto.LoginRequest;
 import com.mycom.myapp.domain.auth.dto.LoginResponse;
+import com.mycom.myapp.domain.auth.dto.PasswordResetConfirmRequest;
+import com.mycom.myapp.domain.auth.dto.PasswordResetRequest;
 import com.mycom.myapp.domain.auth.dto.ReissueRequest;
+import com.mycom.myapp.domain.auth.entity.PasswordResetToken;
 import com.mycom.myapp.domain.auth.entity.RefreshToken;
+import com.mycom.myapp.domain.auth.repository.PasswordResetTokenRepository;
 import com.mycom.myapp.domain.auth.repository.RefreshTokenRepository;
 import com.mycom.myapp.domain.auth.service.AuthServiceImpl;
 import com.mycom.myapp.domain.member.entity.Member;
 import com.mycom.myapp.domain.member.entity.MemberRole;
 import com.mycom.myapp.domain.member.repository.MemberRepository;
 import com.mycom.myapp.global.exception.InvalidCredentialsException;
+import com.mycom.myapp.global.exception.InvalidPasswordResetTokenException;
 import com.mycom.myapp.global.exception.InvalidRefreshTokenException;
 import com.mycom.myapp.global.jwt.JwtProvider;
+import com.mycom.myapp.global.mail.MailService;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceImplTest {
@@ -42,10 +49,16 @@ class AuthServiceImplTest {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Mock
+    private PasswordResetTokenRepository passwordResetTokenRepository;
+
+    @Mock
     private PasswordEncoder passwordEncoder;
 
     @Mock
     private JwtProvider jwtProvider;
+
+    @Mock
+    private MailService mailService;
 
     @InjectMocks
     private AuthServiceImpl authService;
@@ -128,6 +141,111 @@ class AuthServiceImplTest {
         // when & then
         assertThatThrownBy(() -> authService.login(request))
                 .isInstanceOf(InvalidCredentialsException.class);
+    }
+
+    @Test
+    @DisplayName("이메일이 존재하면 토큰을 저장하고 메일을 발송한다")
+    void requestPasswordReset_성공() {
+        // given
+        Member member = createMember();
+        PasswordResetRequest request = new PasswordResetRequest("chang@test.com");
+        given(memberRepository.findByEmail("chang@test.com")).willReturn(Optional.of(member));
+
+        // when
+        authService.requestPasswordReset(request);
+
+        // then
+        verify(passwordResetTokenRepository).deleteByMember_Id(1L);
+        verify(passwordResetTokenRepository).save(any());
+        verify(mailService).sendPasswordResetEmail(eq("chang@test.com"), any());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 이메일이면 아무 것도 하지 않는다 (계정 열거 공격 방지)")
+    void requestPasswordReset_실패_존재하지않는이메일() {
+        // given
+        PasswordResetRequest request = new PasswordResetRequest("none@test.com");
+        given(memberRepository.findByEmail("none@test.com")).willReturn(Optional.empty());
+
+        // when
+        authService.requestPasswordReset(request);
+
+        // then
+        verify(passwordResetTokenRepository, never()).save(any());
+        verify(mailService, never()).sendPasswordResetEmail(any(), any());
+    }
+
+    @Test
+    @DisplayName("탈퇴한 회원이면 아무 것도 하지 않는다")
+    void requestPasswordReset_실패_탈퇴한회원() {
+        // given
+        Member member = createMember();
+        member.delete();
+        PasswordResetRequest request = new PasswordResetRequest("chang@test.com");
+        given(memberRepository.findByEmail("chang@test.com")).willReturn(Optional.of(member));
+
+        // when
+        authService.requestPasswordReset(request);
+
+        // then
+        verify(passwordResetTokenRepository, never()).save(any());
+        verify(mailService, never()).sendPasswordResetEmail(any(), any());
+    }
+
+    @Test
+    @DisplayName("유효한 토큰이면 비밀번호가 재설정되고 토큰이 삭제된다")
+    void confirmPasswordReset_성공() {
+        // given
+        Member member = createMember();
+        PasswordResetToken resetToken = PasswordResetToken.builder()
+                .member(member)
+                .token("reset-token")
+                .expiryDate(LocalDateTime.now().plusMinutes(10))
+                .build();
+        PasswordResetConfirmRequest request = new PasswordResetConfirmRequest("reset-token", "newpassword5678");
+
+        given(passwordResetTokenRepository.findByToken("reset-token")).willReturn(Optional.of(resetToken));
+        given(passwordEncoder.encode("newpassword5678")).willReturn("new-encoded-password");
+
+        // when
+        authService.confirmPasswordReset(request);
+
+        // then
+        assertThat(member.getPassword()).isEqualTo("new-encoded-password");
+        verify(passwordResetTokenRepository).deleteByMember_Id(1L);
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 토큰이면 InvalidPasswordResetTokenException이 발생한다")
+    void confirmPasswordReset_실패_존재하지않는토큰() {
+        // given
+        PasswordResetConfirmRequest request = new PasswordResetConfirmRequest("invalid-token", "newpassword5678");
+        given(passwordResetTokenRepository.findByToken("invalid-token")).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> authService.confirmPasswordReset(request))
+                .isInstanceOf(InvalidPasswordResetTokenException.class);
+    }
+
+    @Test
+    @DisplayName("만료된 토큰이면 InvalidPasswordResetTokenException이 발생한다")
+    void confirmPasswordReset_실패_만료된토큰() {
+        // given
+        Member member = createMember();
+        PasswordResetToken resetToken = PasswordResetToken.builder()
+                .member(member)
+                .token("expired-token")
+                .expiryDate(LocalDateTime.now().minusMinutes(1))
+                .build();
+        PasswordResetConfirmRequest request = new PasswordResetConfirmRequest("expired-token", "newpassword5678");
+
+        given(passwordResetTokenRepository.findByToken("expired-token")).willReturn(Optional.of(resetToken));
+
+        // when & then
+        assertThatThrownBy(() -> authService.confirmPasswordReset(request))
+                .isInstanceOf(InvalidPasswordResetTokenException.class);
+
+        verify(passwordResetTokenRepository, never()).deleteByMember_Id(any());
     }
 
     @Test

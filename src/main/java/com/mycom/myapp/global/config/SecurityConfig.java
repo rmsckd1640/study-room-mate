@@ -54,8 +54,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/members").permitAll()
                 // 로그인: 마찬가지로 토큰이 생기기 전 단계라 인증 없이 호출 가능해야 함
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
-                // 아이디 찾기: 로그인 자체가 안 되는 상황을 위한 기능이라 인증 없이 호출 가능해야 함
+                // 아이디 찾기/비밀번호 재설정: 로그인 자체가 안 되는 상황을 위한 기능이라 인증 없이 호출 가능해야 함
                 .requestMatchers(HttpMethod.POST, "/api/auth/find-username").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/password-reset/request", "/api/auth/password-reset/confirm").permitAll()
                 // 재발급: 호출 시점엔 Access Token이 이미 만료된 상태라 인증 자체가 불가능함.
                 // 대신 컨트롤러 내부에서 Refresh Token 자체를 별도로 검증한다.
                 .requestMatchers(HttpMethod.POST, "/api/auth/reissue").permitAll()

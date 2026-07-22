@@ -10,3 +10,14 @@ jwt.refresh-token-expiration=3600000
 
 toss.payment.toss-secret-key=
 toss.payment.base-url=https://api.tosspayments.com/v1
+
+# Gmail 기준 - 구글 계정 2단계 인증 켜고 "앱 비밀번호" 발급받아서 password에 입력
+spring.mail.host=smtp.gmail.com
+spring.mail.port=587
+spring.mail.username=
+spring.mail.password=
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true
+
+# 비밀번호 재설정 링크에 붙는 프론트 주소
+app.password-reset-url=http://localhost:3000/reset-password
