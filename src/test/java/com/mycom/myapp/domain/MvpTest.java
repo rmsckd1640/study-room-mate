@@ -152,11 +152,6 @@ public class MvpTest {
 	 * 2. ADMIN -> create room -> 승인하고 -> 회원 로그인하고 -> 방 목록 조회 -> 예약
 	 *    -. 예약 
 	*/
-	@Test
-	@Order(2)
-	public void testMVC2() throws Exception {
-		
-	}
 	
 	private <T> T extractData(MvcResult result, Class<T> dataClass) throws Exception {
 		JavaType jt = objectMapper.getTypeFactory().constructParametricType(ResultDto.class, dataClass);

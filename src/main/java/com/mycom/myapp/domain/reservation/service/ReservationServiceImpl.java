@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import com.mycom.myapp.domain.member.entity.Member;
+import com.mycom.myapp.domain.member.entity.MemberGrade;
 import com.mycom.myapp.domain.member.repository.MemberRepository;
 import com.mycom.myapp.domain.payment.dto.TossPaymentResponse;
 import com.mycom.myapp.domain.payment.entity.Payment;
@@ -76,8 +77,7 @@ public class ReservationServiceImpl implements ReservationService {
 			payment = paymentRepository.save(payment);
 
 			ReservationResponse savedData = reservation.toResponse()
-														.withOrderId(payment.getOrderId())
-														.withAmount(payment.getAmount());
+														.withOrderId(payment.getOrderId());
 
 			resultDto.setData(savedData);
 		} catch (Exception e) {

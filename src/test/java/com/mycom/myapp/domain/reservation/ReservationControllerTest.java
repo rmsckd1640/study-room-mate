@@ -49,7 +49,6 @@ public class ReservationControllerTest {
 				.id(1L)
 				.roomId(10L)
 				.orderId("order-1")
-				.amount(5000L)
 				.reservationDate(LocalDate.of(2026, 12, 1))
 				.startTime(LocalDateTime.of(2026, 12, 1, 10, 0))
 				.endTime(LocalDateTime.of(2026, 12, 1, 11, 0))

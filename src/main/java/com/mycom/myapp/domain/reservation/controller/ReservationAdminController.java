@@ -47,7 +47,7 @@ public class ReservationAdminController {
 
 		return securityUtils.isAdmin() ? ResponseEntity.ok(list) : ResponseEntity.badRequest().build();
 	}
-
+	
 	@Operation(description = "ADMIN : 스터디룸 사용자 승인")
 	@PreAuthorize("hasAuthority('ROLE_ADMIN')")
 	@PostMapping("/{id}/confirm")

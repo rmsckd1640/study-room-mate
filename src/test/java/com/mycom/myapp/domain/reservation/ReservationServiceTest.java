@@ -182,7 +182,6 @@ public class ReservationServiceTest {
 		ReservationResponse response = result.getData();
 		assertEquals(ReservationStatus.PENDING, response.status());
 		assertNotNull(response.orderId());
-		assertEquals(5000L, response.amount());
 
 		Payment payment = paymentRepository.findByOrderId(response.orderId()).orElseThrow();
 		assertEquals(PaymentStatus.READY, payment.getStatus());

@@ -24,6 +24,7 @@ public enum MemberGrade {
 
     public static MemberGrade of(long confirmedReservationCount) {
         MemberGrade result = BRONZE;
+        
         for (MemberGrade grade : values()) {
             if (confirmedReservationCount >= grade.minReservationCount) {
                 result = grade;

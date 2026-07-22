@@ -58,5 +58,8 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 	);
 		
 	boolean existsByMember_IdAndRoom_IdAndStatus(Long memberId, Long roomId, ReservationStatus status);
-	
+
+	// 회원 등급 산정용 - 특정 회원의 상태별 예약 개수
+	long countByMember_IdAndStatus(Long memberId, ReservationStatus status);
+
 }
