@@ -10,6 +10,7 @@ import com.mycom.myapp.domain.payment.dto.TossConfirmRequest;
 import com.mycom.myapp.domain.payment.dto.TossPaymentResponse;
 import com.mycom.myapp.domain.payment.service.TossPaymentService;
 
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -20,6 +21,7 @@ public class PaymentController {
 
 	private final TossPaymentService tossPaymentService;
 
+	@Operation(description = "토스 사용자 결제 승인 요청")
 	@PostMapping("/confirm")
 	public ResponseEntity<TossPaymentResponse> confirm(@RequestBody @Valid TossConfirmRequest request) {
 		TossPaymentResponse response = tossPaymentService.confirm(request);

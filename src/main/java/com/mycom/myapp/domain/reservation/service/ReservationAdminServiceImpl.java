@@ -29,24 +29,18 @@ public class ReservationAdminServiceImpl implements ReservationAdminService {
 	public ResultDto<ReservationResponse> confirm(Long reservationId, ReservationStatus status) {
 		ResultDto<ReservationResponse> resultDto = new ResultDto<>();
 
-		try {
-	        Reservation reservation = reservationRepository.findById(reservationId)
-	                .orElseThrow(() -> new IllegalStateException("예약을 찾을 수 없습니다."));
-
-	        if (reservation.getStatus() != ReservationStatus.PAYMENT_DONE) {
-	        	throw new IllegalStateException("결제 완료만 예약 확정 가능");
-	        }
-
-			reservation.confirm();
-
-			Member member = reservation.getMember();
-			long confirmedCount = reservationRepository.countByMember_IdAndStatus(member.getId(), ReservationStatus.CONFIRMED);
-			member.updateGrade(confirmedCount);
-		} catch (Exception e) {
-			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
-			e.printStackTrace();
-			resultDto.setMessage(e.getMessage());
+		Reservation reservation = reservationRepository.findById(reservationId)
+				.orElseThrow(() -> new IllegalStateException("예약을 찾을 수 없습니다."));
+		
+		if (reservation.getStatus() != ReservationStatus.PAYMENT_DONE) {
+			throw new IllegalStateException("결제 완료만 예약 확정 가능");
 		}
+		
+		reservation.confirm();
+		
+		Member member = reservation.getMember();
+		long confirmedCount = reservationRepository.countByMember_IdAndStatus(member.getId(), ReservationStatus.CONFIRMED);
+		member.updateGrade(confirmedCount);
 
 		return resultDto;
 	}
@@ -55,32 +49,26 @@ public class ReservationAdminServiceImpl implements ReservationAdminService {
 	public ResultDto<ReservationResponse> reject(Long reservationId, String reason) {
 		ResultDto<ReservationResponse> resultDto = new ResultDto<>();
 
-		try {
-	        Reservation reservation = reservationRepository.findById(reservationId)
-	                .orElseThrow(() -> new IllegalStateException("예약을 찾을 수 없습니다."));
+        Reservation reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> new IllegalStateException("예약을 찾을 수 없습니다."));
 
-	        if (reservation.getStatus() != ReservationStatus.PAYMENT_DONE) {
-	        	throw new IllegalStateException("결제 완료 상태만 거절 가능");
-	        }
+        if (reservation.getStatus() != ReservationStatus.PAYMENT_DONE) {
+        	throw new IllegalStateException("결제 완료 상태만 거절 가능");
+        }
 
-	        Payment payment = paymentRepository.findByReservation_Id(reservationId)
-	        		.orElseThrow(() -> new IllegalStateException("결제 정보를 찾을 수 없습니다."));
+        Payment payment = paymentRepository.findByReservation_Id(reservationId)
+        		.orElseThrow(() -> new IllegalStateException("결제 정보를 찾을 수 없습니다."));
 
-	        TossPaymentResponse response = tossPaymentService.cancel(
-	        		payment.getPaymentKey(), reason, null
-    		);
+        TossPaymentResponse response = tossPaymentService.cancel(
+        		payment.getPaymentKey(), reason, null
+		);
 
-	        if (!"CANCELED".equalsIgnoreCase(response.status())) {
-	        	throw new IllegalStateException("결제 취소에 실패 : " + response);
-	        }
+        if (!"CANCELED".equalsIgnoreCase(response.status())) {
+        	throw new IllegalStateException("결제 취소에 실패 : " + response);
+        }
 
-	        payment.cancel(reason);
-			reservation.reject();
-		} catch (Exception e) {
-			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
-			e.printStackTrace();
-			resultDto.setMessage(e.getMessage());
-		}
+        payment.cancel(reason);
+		reservation.reject();		
 
 		return resultDto;
 	}
