@@ -135,7 +135,8 @@ public class MvpTest {
 		ReservationInsertRequest insertReq = new ReservationInsertRequest(
 				start.toLocalDate(),
 				start,
-				end
+				end,
+				1000L
 		);
 		
 		log.debug("[STEP 5 : 예약]");
@@ -145,6 +146,12 @@ public class MvpTest {
 				.content(objectMapper.writeValueAsString(insertReq)))
 				.andExpect(status().isOk());
 	}
+	
+	/*
+	 * 1. ADMIN -> create room -> 승인하고 -> 회원 로그인하고 -> 방 목록 조회 -> 예약
+	 * 2. ADMIN -> create room -> 승인하고 -> 회원 로그인하고 -> 방 목록 조회 -> 예약
+	 *    -. 예약 
+	*/
 	
 	private <T> T extractData(MvcResult result, Class<T> dataClass) throws Exception {
 		JavaType jt = objectMapper.getTypeFactory().constructParametricType(ResultDto.class, dataClass);
