@@ -12,7 +12,7 @@ CREATE TABLE `member` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`),
   UNIQUE KEY `email` (`email`)
-)
+);
 
 CREATE TABLE `room` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -23,7 +23,7 @@ CREATE TABLE `room` (
   `updated_at` timestamp NULL DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL COMMENT '폐쇄 시 soft delete',
   PRIMARY KEY (`id`)
-)
+);
 
 CREATE TABLE `refresh_token` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -33,7 +33,17 @@ CREATE TABLE `refresh_token` (
   PRIMARY KEY (`id`),
   KEY `refresh_token_index_0` (`member_id`),
   CONSTRAINT `refresh_token_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `member` (`id`)
-)
+);
+
+CREATE TABLE `password_reset_token` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `member_id` bigint NOT NULL,
+  `token` varchar(255) NOT NULL,
+  `expiry_date` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `password_reset_token_index_0` (`member_id`),
+  CONSTRAINT `fk_password_reset_token_member` FOREIGN KEY (`member_id`) REFERENCES `member` (`id`)
+);
 
 CREATE TABLE `review` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -49,7 +59,7 @@ CREATE TABLE `review` (
   KEY `review_index_2` (`room_id`),
   CONSTRAINT `review_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `member` (`id`),
   CONSTRAINT `review_ibfk_2` FOREIGN KEY (`room_id`) REFERENCES `room` (`id`)
-)
+);
 
 CREATE TABLE `wishlist` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -64,7 +74,7 @@ CREATE TABLE `wishlist` (
   KEY `wishlist_index_4` (`room_id`),
   CONSTRAINT `wishlist_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `member` (`id`),
   CONSTRAINT `wishlist_ibfk_2` FOREIGN KEY (`room_id`) REFERENCES `room` (`id`)
-)
+);
 
 CREATE TABLE `reservation` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -82,7 +92,7 @@ CREATE TABLE `reservation` (
   KEY `reservation_index_6` (`room_id`),
   CONSTRAINT `reservation_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `member` (`id`),
   CONSTRAINT `reservation_ibfk_2` FOREIGN KEY (`room_id`) REFERENCES `room` (`id`)
-)
+);
 
 CREATE TABLE `payment` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -100,4 +110,4 @@ CREATE TABLE `payment` (
   UNIQUE KEY `uq_payment_reservation_id` (`reservation_id`),
   UNIQUE KEY `uq_payment_payment_key` (`payment_key`),
   CONSTRAINT `payment_ibfk_1` FOREIGN KEY (`reservation_id`) REFERENCES `reservation` (`id`)
-)
+);
