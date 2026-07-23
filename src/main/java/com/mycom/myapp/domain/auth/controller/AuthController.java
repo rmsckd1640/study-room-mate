@@ -18,6 +18,7 @@ import com.mycom.myapp.domain.member.dto.FindUsernameRequest;
 import com.mycom.myapp.domain.member.service.MemberService;
 import com.mycom.myapp.global.common.dto.ResultDto;
 
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -30,6 +31,7 @@ public class AuthController {
     // 아이디 찾기는 Auth 도메인의 관심사가 아니라 순수 Member 조회라 MemberService를 직접 사용
     private final MemberService memberService;
 
+    @Operation(description = "USER : 로그인")
     @PostMapping("/login")
     public ResponseEntity<ResultDto<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
         LoginResponse response = authService.login(request);
@@ -42,6 +44,7 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.OK).body(result);
     }
 
+    @Operation(description = "USER : 토큰 재발급")
     @PostMapping("/reissue")
     public ResponseEntity<ResultDto<LoginResponse>> reissue(@Valid @RequestBody ReissueRequest request) {
         LoginResponse response = authService.reissue(request);
@@ -54,6 +57,7 @@ public class AuthController {
         return ResponseEntity.ok(result);
     }
 
+    @Operation(description = "USER : 아이디 찾기")
     @PostMapping("/find-username")
     public ResponseEntity<ResultDto<String>> findUsername(@Valid @RequestBody FindUsernameRequest request) {
         String username = memberService.findUsername(request);
@@ -66,6 +70,7 @@ public class AuthController {
         return ResponseEntity.ok(result);
     }
 
+    @Operation(description = "USER : 비밀번호 재설정 요청")
     @PostMapping("/password-reset/request")
     public ResponseEntity<ResultDto<Void>> requestPasswordReset(@Valid @RequestBody PasswordResetRequest request) {
         authService.requestPasswordReset(request);
@@ -79,6 +84,7 @@ public class AuthController {
         return ResponseEntity.ok(result);
     }
 
+    @Operation(description = "USER : 비밀번호 재설정 확정")
     @PostMapping("/password-reset/confirm")
     public ResponseEntity<ResultDto<Void>> confirmPasswordReset(@Valid @RequestBody PasswordResetConfirmRequest request) {
         authService.confirmPasswordReset(request);
@@ -91,6 +97,7 @@ public class AuthController {
         return ResponseEntity.ok(result);
     }
 
+    @Operation(description = "USER : 로그아웃")
     @PostMapping("/logout")
     public ResponseEntity<ResultDto<Void>> logout(@AuthenticationPrincipal String username) {
         // JwtAuthFilter가 SecurityContext에 넣어둔 principal(username)을 직접 꺼냄

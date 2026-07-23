@@ -20,6 +20,7 @@ import com.mycom.myapp.domain.member.dto.WithdrawRequest;
 import com.mycom.myapp.domain.member.service.MemberService;
 import com.mycom.myapp.global.common.dto.ResultDto;
 
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -30,6 +31,7 @@ public class MemberController {
 
     private final MemberService memberService;
 
+    @Operation(description = "USER : 회원가입")
     @PostMapping
     public ResponseEntity<ResultDto<MemberResponse>> signup(@Valid @RequestBody SignupRequest request) {
         MemberResponse response = memberService.signup(request);
@@ -42,6 +44,7 @@ public class MemberController {
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
+    @Operation(description = "USER : 마이페이지 조회")
     @GetMapping("/{id}")
     public ResponseEntity<ResultDto<MemberResponse>> getMyPage(
             @PathVariable Long id,
@@ -56,6 +59,7 @@ public class MemberController {
         return ResponseEntity.ok(result);
     }
 
+    @Operation(description = "USER : 회원 정보 수정")
     @PatchMapping("/{id}")
     public ResponseEntity<ResultDto<MemberResponse>> updateInfo(
             @PathVariable Long id,
@@ -71,6 +75,7 @@ public class MemberController {
         return ResponseEntity.ok(result);
     }
 
+    @Operation(description = "USER : 비밀번호 변경")
     @PatchMapping("/{id}/password")
     public ResponseEntity<ResultDto<Void>> changePassword(
             @PathVariable Long id,
@@ -86,6 +91,7 @@ public class MemberController {
         return ResponseEntity.ok(result);
     }
 
+    @Operation(description = "USER : 회원 탈퇴")
     @DeleteMapping("/{id}")
     public ResponseEntity<ResultDto<Void>> withdraw(
             @PathVariable Long id,
