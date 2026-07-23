@@ -46,25 +46,25 @@ public class RoomServiceImpl implements RoomService {
 	@Override
 	public Page<RoomResponseDto> getRooms(String username, Pageable pageable) {
 		MemberGrade grade = getMemberGrade(username);
-		return roomRepository.findAll(pageable).map(dto -> RoomResponseDto.from(dto, grade.applyDiscount(dto.getPrice())));
+		return roomRepository.findAll(pageable).map(room -> RoomResponseDto.from(room, grade.applyDiscount(room.getPrice())));
 	}
 
 	@Override
 	public List<RoomResponseDto> searchByName(String username, String name) {
 		MemberGrade grade = getMemberGrade(username);
-		return roomRepository.findByNameContaining(name).stream().map(dto -> RoomResponseDto.from(dto, grade.applyDiscount(dto.getPrice()))).toList();
+		return roomRepository.findByNameContaining(name).stream().map(room -> RoomResponseDto.from(room, grade.applyDiscount(room.getPrice()))).toList();
 	}
 
 	@Override
 	public List<RoomResponseDto> searchByMinCapacity(String username, Integer capacity) {
 		MemberGrade grade = getMemberGrade(username);
-		return roomRepository.findByCapacityGreaterThanEqual(capacity).stream().map(dto -> RoomResponseDto.from(dto, grade.applyDiscount(dto.getPrice()))).toList();
+		return roomRepository.findByCapacityGreaterThanEqual(capacity).stream().map(room -> RoomResponseDto.from(room, grade.applyDiscount(room.getPrice()))).toList();
 	}
 
 	@Override
 	public List<RoomResponseDto> searchByMaxPrice(String username, Integer price) {
 		MemberGrade grade = getMemberGrade(username);
-		return roomRepository.findByPriceLessThanEqual(price).stream().map(dto -> RoomResponseDto.from(dto, grade.applyDiscount(dto.getPrice()))).toList();
+		return roomRepository.findByPriceLessThanEqual(price).stream().map(room -> RoomResponseDto.from(room, grade.applyDiscount(room.getPrice()))).toList();
 	}
 
 	@Override

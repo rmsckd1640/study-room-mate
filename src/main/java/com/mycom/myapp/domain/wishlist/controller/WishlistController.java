@@ -18,6 +18,7 @@ import com.mycom.myapp.domain.wishlist.dto.WishlistResponseDto;
 import com.mycom.myapp.domain.wishlist.service.WishlistService;
 import com.mycom.myapp.global.common.dto.ResultDto;
 
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -28,6 +29,7 @@ public class WishlistController {
 
 	private final WishlistService wishlistService;
 
+	@Operation(description = "USER : 즐겨찾기 추가")
 	@PostMapping
 	public ResponseEntity<ResultDto<WishlistResponseDto>> create(@RequestBody @Valid WishlistCreateRequest request) {
 		String username = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -35,6 +37,7 @@ public class WishlistController {
 		return ResponseEntity.status(HttpStatus.CREATED).body(ResultDto.<WishlistResponseDto>builder().message("즐겨찾기 성공").data(data).build());
 	}
 
+	@Operation(description = "USER : 즐겨찾기 삭제")
 	@DeleteMapping("/{id}")
 	public ResponseEntity<ResultDto<Void>> delete(@PathVariable("id") Long id) {
 		String username = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -42,6 +45,7 @@ public class WishlistController {
 		return ResponseEntity.ok(ResultDto.<Void>builder().message("즐겨찾기 삭제 성공").data(null).build());
 	}
 
+	@Operation(description = "USER : 즐겨찾기 조회")
 	@GetMapping
 	public ResponseEntity<ResultDto<List<WishlistResponseDto>>> getWishlists() {
 		String username = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -49,6 +53,7 @@ public class WishlistController {
 		return ResponseEntity.ok(ResultDto.<List<WishlistResponseDto>>builder().message("즐겨찾기 조회 성공").data(data).build());
 	}
 
+	@Operation(description = "USER : 특정 스터디룸의 즐겨찾기된 횟수 조회")
 	@GetMapping("/room/{roomId}")
 	public ResponseEntity<ResultDto<Long>> countByRoom(@PathVariable("roomId") Long roomId) {
 		Long data = wishlistService.countByRoomId(roomId);
