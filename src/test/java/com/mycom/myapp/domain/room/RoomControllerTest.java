@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -116,36 +117,37 @@ class RoomControllerTest {
 	}
 
 	@Test
-	@DisplayName("이름으로 room을 검색하면 할인가가 적용된 데이터를 반환한다")
-	void searchByName_성공() throws Exception {
+	@DisplayName("조건으로 room을 검색하면 할인가가 적용된 데이터를 반환한다")
+	void search_성공() throws Exception {
 		// given
 		RoomResponseDto response = new RoomResponseDto(1L, "한강뷰 스튜디오", 4, 150000, 127500, null);
-		given(roomService.searchByName("user1", "한강뷰")).willReturn(List.of(response));
+		given(roomService.search("user1", "한강뷰", 4, 200000)).willReturn(List.of(response));
 
 		// when & then
-		mockMvc.perform(get("/api/rooms/search/name").param("name", "한강뷰").with(withAuth("user1", "ROLE_USER"))).andExpect(status().isOk()).andExpect(jsonPath("$.data[0].discountedPrice").value(127500));
+		mockMvc.perform(get("/api/rooms/search").param("name", "한강뷰").param("capacity", "4").param("price", "200000").with(withAuth("user1", "ROLE_USER"))).andDo(print()).andExpect(status().isOk()).andExpect(jsonPath("$.data[0].discountedPrice").value(127500));
 	}
 
 	@Test
-	@DisplayName("최소 수용 인원으로 room을 검색한다")
-	void searchByCapacity_성공() throws Exception {
+	@DisplayName("조건 없이 검색해도 정상 동작한다")
+	void search_조건없음_성공() throws Exception {
 		// given
 		RoomResponseDto response = new RoomResponseDto(1L, "한강뷰 스튜디오", 4, 150000, 127500, null);
-		given(roomService.searchByMinCapacity("user1", 4)).willReturn(List.of(response));
+		given(roomService.search("user1", null, null, null)).willReturn(List.of(response));
 
 		// when & then
-		mockMvc.perform(get("/api/rooms/search/capacity").param("capacity", "4").with(withAuth("user1", "ROLE_USER"))).andExpect(status().isOk()).andExpect(jsonPath("$.data[0].capacity").value(4));
+		mockMvc.perform(get("/api/rooms/search").with(withAuth("user1", "ROLE_USER"))).andDo(print()).andExpect(status().isOk()).andExpect(jsonPath("$.data[0].name").value("한강뷰 스튜디오"));
 	}
 
 	@Test
-	@DisplayName("최대 가격으로 room을 검색한다")
-	void searchByPrice_성공() throws Exception {
+	@DisplayName("조건으로 room을 페이징 검색하면 할인가가 적용된 데이터를 반환한다")
+	void searchWithPaging_성공() throws Exception {
 		// given
 		RoomResponseDto response = new RoomResponseDto(1L, "한강뷰 스튜디오", 4, 150000, 127500, null);
-		given(roomService.searchByMaxPrice("user1", 200000)).willReturn(List.of(response));
+		Page<RoomResponseDto> page = new PageImpl<>(List.of(response));
+		given(roomService.searchWithPaging(eq("user1"), eq("한강뷰"), eq(4), eq(200000), any())).willReturn(page);
 
 		// when & then
-		mockMvc.perform(get("/api/rooms/search/price").param("price", "200000").with(withAuth("user1", "ROLE_USER"))).andExpect(status().isOk()).andExpect(jsonPath("$.data[0].price").value(150000));
+		mockMvc.perform(get("/api/rooms/search/page").param("name", "한강뷰").param("capacity", "4").param("price", "200000").with(withAuth("user1", "ROLE_USER"))).andDo(print()).andExpect(status().isOk()).andExpect(jsonPath("$.data.content[0].discountedPrice").value(127500));
 	}
 
 	@Test
