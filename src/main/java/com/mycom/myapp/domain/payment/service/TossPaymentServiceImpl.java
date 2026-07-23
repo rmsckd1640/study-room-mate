@@ -3,6 +3,7 @@ package com.mycom.myapp.domain.payment.service;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -11,6 +12,7 @@ import com.mycom.myapp.domain.payment.dto.TossConfirmRequest;
 import com.mycom.myapp.domain.payment.dto.TossPaymentResponse;
 import com.mycom.myapp.domain.payment.entity.Payment;
 import com.mycom.myapp.domain.payment.repository.PaymentRepository;
+import com.mycom.myapp.global.common.util.SecurityUtils;
 import com.mycom.myapp.global.exception.TossPaymentException;
 
 import lombok.RequiredArgsConstructor;
@@ -19,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class TossPaymentServiceImpl implements TossPaymentService {
 
+	private final SecurityUtils securityUtils;
 	private final WebClient tossPaymentWebClient;
 	private final PaymentRepository paymentRepository;
 
@@ -27,6 +30,11 @@ public class TossPaymentServiceImpl implements TossPaymentService {
 			Payment payment = paymentRepository.findByOrderId(request.orderId())
 					.orElseThrow(() -> new IllegalStateException("결제 정보를 찾을 수 없습니다."));
 
+	        String username = securityUtils.getCurrentUsername();
+	        if (!payment.getReservation().getMember().getUsername().equals(username)) {
+	            throw new AccessDeniedException("본인 결제만 승인할 수 있습니다.");
+	        }
+			
 			if (!payment.getAmount().equals((long) request.amount())) {
 				throw new IllegalStateException("결제 금액 != 예약 금액");
 			}

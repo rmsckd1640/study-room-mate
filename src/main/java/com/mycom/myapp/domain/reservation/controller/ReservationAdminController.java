@@ -36,7 +36,7 @@ public class ReservationAdminController {
 	public ResponseEntity<ResultDto<List<ReservationResponse>>> list() {
 		ResultDto<List<ReservationResponse>> list = reservationService.list();
 
-		return securityUtils.isAdmin() ? ResponseEntity.ok(list) : ResponseEntity.badRequest().build();
+		return ResponseEntity.ok(list);
 	}
 
 	@Operation(description = "ADMIN : 스터디룸 예약 스터디룸 아이디 조회")
@@ -45,7 +45,7 @@ public class ReservationAdminController {
 	public ResponseEntity<ResultDto<List<ReservationResponse>>> list(@PathVariable("id") Long roomId) {
 		ResultDto<List<ReservationResponse>> list = reservationService.list(roomId);
 
-		return securityUtils.isAdmin() ? ResponseEntity.ok(list) : ResponseEntity.badRequest().build();
+		return ResponseEntity.ok(list);
 	}
 	
 	@Operation(description = "ADMIN : 스터디룸 사용자 승인")
