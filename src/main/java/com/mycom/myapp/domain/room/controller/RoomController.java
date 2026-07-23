@@ -53,28 +53,20 @@ public class RoomController {
 		return ResponseEntity.ok(ResultDto.<Page<RoomResponseDto>>builder().message("조회 성공").data(data).build());
 	}
 
-	@Operation(description = "USER : 이름으로 스터디룸 검색")
-	@GetMapping("/search/name")
-	public ResponseEntity<ResultDto<List<RoomResponseDto>>> searchByName(@RequestParam("name") String name) {
+	@Operation(description = "USER : 스터디룸 이름, 특정 수용인원 이상, 특정 가격으로 스터디룸 검색")
+	@GetMapping("/search")
+	public ResponseEntity<ResultDto<List<RoomResponseDto>>> search(@RequestParam(value = "name", required = false) String name, @RequestParam(value = "capacity", required = false) Integer capacity, @RequestParam(value = "price", required = false) Integer price) {
 		String username = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-		List<RoomResponseDto> data = roomService.searchByName(username, name);
+		List<RoomResponseDto> data = roomService.search(username, name, capacity, price);
 		return ResponseEntity.ok(ResultDto.<List<RoomResponseDto>>builder().message("검색 성공").data(data).build());
 	}
 
-	@Operation(description = "USER : 원하는 수용인원 이상인 스터디룸 검색")
-	@GetMapping("/search/capacity")
-	public ResponseEntity<ResultDto<List<RoomResponseDto>>> searchByCapacity(@RequestParam("capacity") Integer capacity) {
+	@Operation(description = "USER : 페이징을 이용하여 스터디룸 이름, 특정 수용인원 이상, 특정 가격으로 스터디룸 검색")
+	@GetMapping("/search/page")
+	public ResponseEntity<ResultDto<Page<RoomResponseDto>>> searchWithPaging(@RequestParam(value = "name", required = false) String name, @RequestParam(value = "capacity", required = false) Integer capacity, @RequestParam(value = "price", required = false) Integer price, @PageableDefault(size = 20, sort = "name", direction = Sort.Direction.DESC) Pageable pageable) {
 		String username = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-		List<RoomResponseDto> data = roomService.searchByMinCapacity(username, capacity);
-		return ResponseEntity.ok(ResultDto.<List<RoomResponseDto>>builder().message("검색 성공").data(data).build());
-	}
-
-	@Operation(description = "USER : 원하는 가격 이하인 스터디룸 검색")
-	@GetMapping("/search/price")
-	public ResponseEntity<ResultDto<List<RoomResponseDto>>> searchByPrice(@RequestParam("price") Integer price) {
-		String username = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-		List<RoomResponseDto> data = roomService.searchByMaxPrice(username, price);
-		return ResponseEntity.ok(ResultDto.<List<RoomResponseDto>>builder().message("검색 성공").data(data).build());
+		Page<RoomResponseDto> data = roomService.searchWithPaging(username, name, capacity, price, pageable);
+		return ResponseEntity.ok(ResultDto.<Page<RoomResponseDto>>builder().message("검색 성공").data(data).build());
 	}
 
 	@Operation(description = "ADMIN : 스터디룸 생성")

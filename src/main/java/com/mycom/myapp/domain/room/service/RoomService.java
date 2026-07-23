@@ -14,11 +14,9 @@ public interface RoomService {
 
 	Page<RoomResponseDto> getRooms(String username, Pageable pageable);
 
-	List<RoomResponseDto> searchByName(String username, String name);
+	List<RoomResponseDto> search(String username, String name, Integer capacity, Integer price);
 
-	List<RoomResponseDto> searchByMinCapacity(String username, Integer capacity);
-
-	List<RoomResponseDto> searchByMaxPrice(String username, Integer price);
+	Page<RoomResponseDto> searchWithPaging(String username, String name, Integer capacity, Integer price, Pageable pageable);
 
 	RoomResponseDto createRoom(RoomCreateRequest request);
 

@@ -54,7 +54,7 @@ class RoomServiceTest {
 	void setUp() {
 		vipMember = Member.builder().username("user1").password("password1").email("user1@test.com").name("회원1").build();
 		ReflectionTestUtils.setField(vipMember, "id", 1L);
-		ReflectionTestUtils.setField(vipMember, "grade", MemberGrade.VIP); // 추가
+		ReflectionTestUtils.setField(vipMember, "grade", MemberGrade.VIP);
 
 		room = Room.builder().name("한강뷰 스튜디오").capacity(4).price(150000).build();
 		ReflectionTestUtils.setField(room, "id", 5L);
@@ -113,14 +113,14 @@ class RoomServiceTest {
 	}
 
 	@Test
-	@DisplayName("이름으로 room을 검색하면 할인가가 적용된다")
-	void searchByName_성공() {
+	@DisplayName("조건에 맞는 room을 검색하면 할인가가 적용된다")
+	void search_성공() {
 		// given
-		given(roomRepository.findByNameContaining("한강뷰")).willReturn(List.of(room));
+		given(roomRepository.search("한강뷰", 4, 200000)).willReturn(List.of(room));
 		given(memberRepository.findByUsername("user1")).willReturn(Optional.of(vipMember));
 
 		// when
-		List<RoomResponseDto> result = roomService.searchByName("user1", "한강뷰");
+		List<RoomResponseDto> result = roomService.search("user1", "한강뷰", 4, 200000);
 
 		// then
 		assertThat(result).hasSize(1);
@@ -128,33 +128,43 @@ class RoomServiceTest {
 	}
 
 	@Test
-	@DisplayName("최소 수용 인원으로 room을 검색하면 할인가가 적용된다")
-	void searchByMinCapacity_성공() {
+	@DisplayName("조건이 전부 null이어도 검색이 정상 동작한다")
+	void search_조건없음() {
 		// given
-		given(roomRepository.findByCapacityGreaterThanEqual(4)).willReturn(List.of(room));
+		given(roomRepository.search(null, null, null)).willReturn(List.of(room));
 		given(memberRepository.findByUsername("user1")).willReturn(Optional.of(vipMember));
 
 		// when
-		List<RoomResponseDto> result = roomService.searchByMinCapacity("user1", 4);
+		List<RoomResponseDto> result = roomService.search("user1", null, null, null);
 
 		// then
 		assertThat(result).hasSize(1);
-		assertThat(result.get(0).discountedPrice()).isEqualTo(MemberGrade.VIP.applyDiscount(150000));
 	}
 
 	@Test
-	@DisplayName("최대 가격으로 room을 검색하면 할인가가 적용된다")
-	void searchByMaxPrice_성공() {
+	@DisplayName("존재하지 않는 회원이 검색하면 UserNotFoundException이 발생한다")
+	void search_실패_회원없음() {
 		// given
-		given(roomRepository.findByPriceLessThanEqual(200000)).willReturn(List.of(room));
+		given(memberRepository.findByUsername("unknown")).willReturn(Optional.empty());
+
+		// when & then
+		assertThrows(UserNotFoundException.class, () -> roomService.search("unknown", "한강뷰", null, null));
+	}
+
+	@Test
+	@DisplayName("조건에 맞는 room을 페이징 검색하면 할인가가 적용된다")
+	void searchWithPaging_성공() {
+		// given
+		Page<Room> page = new PageImpl<>(List.of(room));
+		given(roomRepository.search("한강뷰", 4, 200000, PageRequest.of(0, 10))).willReturn(page);
 		given(memberRepository.findByUsername("user1")).willReturn(Optional.of(vipMember));
 
 		// when
-		List<RoomResponseDto> result = roomService.searchByMaxPrice("user1", 200000);
+		Page<RoomResponseDto> result = roomService.searchWithPaging("user1", "한강뷰", 4, 200000, PageRequest.of(0, 10));
 
 		// then
-		assertThat(result).hasSize(1);
-		assertThat(result.get(0).discountedPrice()).isEqualTo(MemberGrade.VIP.applyDiscount(150000));
+		assertThat(result.getContent()).hasSize(1);
+		assertThat(result.getContent().get(0).discountedPrice()).isEqualTo(MemberGrade.VIP.applyDiscount(150000));
 	}
 
 	@Test

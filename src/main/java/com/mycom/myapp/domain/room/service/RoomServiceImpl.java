@@ -50,21 +50,15 @@ public class RoomServiceImpl implements RoomService {
 	}
 
 	@Override
-	public List<RoomResponseDto> searchByName(String username, String name) {
+	public List<RoomResponseDto> search(String username, String name, Integer capacity, Integer price) {
 		MemberGrade grade = getMemberGrade(username);
-		return roomRepository.findByNameContaining(name).stream().map(room -> RoomResponseDto.from(room, grade.applyDiscount(room.getPrice()))).toList();
+		return roomRepository.search(name, capacity, price).stream().map(room -> RoomResponseDto.from(room, grade.applyDiscount(room.getPrice()))).toList();
 	}
 
 	@Override
-	public List<RoomResponseDto> searchByMinCapacity(String username, Integer capacity) {
+	public Page<RoomResponseDto> searchWithPaging(String username, String name, Integer capacity, Integer price, Pageable pageable) {
 		MemberGrade grade = getMemberGrade(username);
-		return roomRepository.findByCapacityGreaterThanEqual(capacity).stream().map(room -> RoomResponseDto.from(room, grade.applyDiscount(room.getPrice()))).toList();
-	}
-
-	@Override
-	public List<RoomResponseDto> searchByMaxPrice(String username, Integer price) {
-		MemberGrade grade = getMemberGrade(username);
-		return roomRepository.findByPriceLessThanEqual(price).stream().map(room -> RoomResponseDto.from(room, grade.applyDiscount(room.getPrice()))).toList();
+		return roomRepository.search(name, capacity, price, pageable).map(room -> RoomResponseDto.from(room, grade.applyDiscount(room.getPrice())));
 	}
 
 	@Override
