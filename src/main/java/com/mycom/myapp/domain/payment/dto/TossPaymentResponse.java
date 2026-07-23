@@ -1,5 +1,7 @@
 package com.mycom.myapp.domain.payment.dto;
 
+import java.util.List;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -22,7 +24,8 @@ public record TossPaymentResponse(
 	String lastTransactionKey,
 	Card card,
 	VirtualAccount virtualAccount,
-	Failure failure
+	Failure failure,
+	List<Cancel> cancels
 
 ) {
 
@@ -55,6 +58,15 @@ public record TossPaymentResponse(
 	public record Failure(
 		String code,
 		String message
+	) {
+	}
+
+	@JsonIgnoreProperties(ignoreUnknown = true)
+	public record Cancel(
+		String cancelReason,
+		String canceledAt,
+		Long cancelAmount,
+		String cancelStatus
 	) {
 	}
 

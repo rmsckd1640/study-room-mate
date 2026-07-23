@@ -4,16 +4,14 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.client.RestClient;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycom.myapp.domain.payment.dto.TossConfirmRequest;
 import com.mycom.myapp.domain.payment.dto.TossPaymentResponse;
-import com.mycom.myapp.domain.payment.dto.TossPaymentResponse.Failure;
 import com.mycom.myapp.domain.payment.entity.Payment;
 import com.mycom.myapp.domain.payment.repository.PaymentRepository;
 import com.mycom.myapp.domain.reservation.repository.ReservationRepository;
@@ -30,10 +28,10 @@ import lombok.extern.slf4j.Slf4j;
 public class TossPaymentServiceImpl implements TossPaymentService {
 
 	private final SecurityUtils securityUtils;
-	private final WebClient tossPaymentWebClient;
+	private final RestClient tossPaymentRestClient;
 	private final PaymentRepository paymentRepository;
 	private final ReservationRepository reservationRepository;
-	private final ObjectMapper objectMapper;
+	private final PlatformTransactionManager transactionManager;
 
 	public TossPaymentResponse confirm(TossConfirmRequest request) {
 		Payment payment = paymentRepository.findByOrderId(request.orderId())
@@ -63,15 +61,10 @@ public class TossPaymentServiceImpl implements TossPaymentService {
 	}
 
 	public TossPaymentResponse getPaymentKey(String paymentKey) {
-		try {
-            return tossPaymentWebClient.get()
-                    .uri("/payments/{paymentKey}", paymentKey)
-                    .retrieve()
-                    .bodyToMono(TossPaymentResponse.class)
-                    .block();
-		} catch (WebClientResponseException e) {
-			throw toTossPaymentException(e);
-		}
+		return tossPaymentRestClient.get()
+				.uri("/payments/{paymentKey}", paymentKey)
+				.retrieve()
+				.body(TossPaymentResponse.class);
 	}
 
 	public TossPaymentResponse cancel(String paymentKey, String cancelReason, Long cancelAmount) {
@@ -79,40 +72,33 @@ public class TossPaymentServiceImpl implements TossPaymentService {
 				? Map.of("cancelReason", cancelReason, "cancelAmount", cancelAmount)
 				: Map.of("cancelReason", cancelReason);
 
-		try {
-            return tossPaymentWebClient.post()
-                    .uri("/payments/{paymentKey}/cancel", paymentKey)
-                    .header("Idempotency-Key", UUID.randomUUID().toString())
-                    .bodyValue(body)
-                    .retrieve()
-                    .bodyToMono(TossPaymentResponse.class)
-                    .block();
-		} catch (WebClientResponseException e) {
-			throw toTossPaymentException(e);
-		}
+		return tossPaymentRestClient.post()
+				.uri("/payments/{paymentKey}/cancel", paymentKey)
+				.header("Idempotency-Key", UUID.randomUUID().toString())
+				.body(body)
+				.retrieve()
+				.body(TossPaymentResponse.class);
 	}
 
 	private TossPaymentResponse requestConfirm(TossConfirmRequest request) {
-		try {
-			return tossPaymentWebClient.post()
-					.uri("/payments/confirm")
-					.bodyValue(request)
-					.retrieve()
-					.bodyToMono(TossPaymentResponse.class)
-					.block();
-		} catch (WebClientResponseException e) {
-			log.error("Toss 결제 승인 실패 - orderId: {}, body: {}", request.orderId(), e.getResponseBodyAsString());
-			throw toTossPaymentException(e);
-		}
+		return tossPaymentRestClient.post()
+				.uri("/payments/confirm")
+				.body(request)
+				.retrieve()
+				.body(TossPaymentResponse.class);
 	}
 
 	private void completePayment(Payment payment, TossPaymentResponse response) {
 		try {
-			payment.complete(response.paymentKey());
-			payment.getReservation().paymentDone();
+			// payment/reservation 저장이 원자적으로 묶이도록 TransactionTemplate으로 별도 트랜잭션 처리한다.
+			// (Toss 승인 호출은 이미 끝난 뒤라 이 블록엔 외부 I/O가 없다.)
+			new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+				payment.complete(response.paymentKey());
+				payment.getReservation().paymentDone();
 
-			paymentRepository.save(payment);
-			reservationRepository.save(payment.getReservation());
+				paymentRepository.save(payment);
+				reservationRepository.save(payment.getReservation());
+			});
 		} catch (Exception e) {
 			log.error("결제 승인 후처리 실패, Toss 결제 자동 취소를 시도합니다 - orderId: {}, paymentKey: {}",
 					payment.getOrderId(), response.paymentKey(), e);
@@ -126,22 +112,7 @@ public class TossPaymentServiceImpl implements TossPaymentService {
 		try {
 			cancel(paymentKey, "결제 후처리 실패로 인한 자동 취소", null);
 		} catch (Exception cancelEx) {
-			log.error("[결제 ERROR] paymentKey={} 자동 취소 실패, 수동 확인이 필요합니다.", paymentKey, cancelEx);
-		}
-	}
-
-	private TossPaymentException toTossPaymentException(WebClientResponseException e) {
-		Failure failure = parseFailure(e.getResponseBodyAsString());
-		HttpStatusCode tossStatus = e.getStatusCode();
-		HttpStatus clientStatus = tossStatus.is4xxClientError() ? HttpStatus.BAD_REQUEST : HttpStatus.BAD_GATEWAY;
-		return new TossPaymentException(failure.message(), tossStatus, clientStatus);
-	}
-
-	private Failure parseFailure(String body) {
-		try {
-			return objectMapper.readValue(body, Failure.class);
-		} catch (Exception e) {
-			return new Failure("UNKNOWN", "결제 처리 중 오류가 발생했습니다.");
+			log.error("[결제 정합성 경고] paymentKey={} 자동 취소마저 실패했습니다. 수동 확인이 필요합니다.", paymentKey, cancelEx);
 		}
 	}
 
