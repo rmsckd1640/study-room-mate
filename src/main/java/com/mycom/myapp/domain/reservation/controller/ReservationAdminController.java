@@ -28,7 +28,6 @@ public class ReservationAdminController {
 
 	private final ReservationService reservationService;
 	private final ReservationAdminService reservationAdminService;
-	private final SecurityUtils securityUtils;
 
 	@Operation(description = "ADMIN : 스터디룸 예약 조회")
 	@PreAuthorize("hasAuthority('ROLE_ADMIN')")
