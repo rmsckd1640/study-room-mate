@@ -93,6 +93,10 @@ export interface RoomResponseDto {
   capacity: number
   price: number
   discountedPrice: number
+  wishlisted: boolean
+  wishlistCount: number
+  averageRating: number
+  reviewCount: number
   createdAt: string
 }
 
