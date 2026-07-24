@@ -31,12 +31,12 @@ export default function DashboardPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [roomPage, reservationList] = await Promise.all([
+      const [roomPage, reservationPage] = await Promise.all([
         roomsApi.listRooms(0, 100),
         reservationsApi.adminListReservations(),
       ])
       setRooms(roomPage.content)
-      setReservations(reservationList)
+      setReservations(reservationPage.content)
     } finally {
       setLoading(false)
     }

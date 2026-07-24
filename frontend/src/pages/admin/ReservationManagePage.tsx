@@ -26,11 +26,11 @@ export default function ReservationManagePage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [reservationList, roomPage] = await Promise.all([
+      const [reservationPage, roomPage] = await Promise.all([
         reservationsApi.adminListReservations(),
         roomsApi.listRooms(0, 100),
       ])
-      setReservations(reservationList)
+      setReservations(reservationPage.content)
       setRooms(roomPage.content)
     } catch {
       showToast('예약 목록을 불러오지 못했습니다.', 'error')
