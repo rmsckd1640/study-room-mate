@@ -112,8 +112,13 @@ export default function ReservePage() {
     <div className="flex-1 flex items-center justify-center text-sm text-gray-400">방을 찾을 수 없습니다.</div>
   )
 
+  const now = new Date()
+  const todayStr = now.toISOString().slice(0, 10)
+  const isPastHour = (h: number) => date === todayStr && h <= now.getHours()
+
   const discount    = room.price > 0 ? 1 - room.discountedPrice / room.price : 0
   const toggleSlot = (h: number) => {
+    if (isPastHour(h)) return
     setSelectedHours((prev) => {
       const next = new Set(prev)
       next.has(h) ? next.delete(h) : next.add(h)
@@ -240,13 +245,16 @@ export default function ReservePage() {
                     <div className="grid grid-cols-3 gap-1.5">
                       {SLOT_HOURS.map((h) => {
                         const sel = selectedHours.has(h)
+                        const past = isPastHour(h)
                         return (
-                          <button key={h} onClick={() => toggleSlot(h)}
+                          <button key={h} disabled={past} onClick={() => toggleSlot(h)}
                             className="py-2 px-1 rounded-xl text-xs font-semibold transition-all"
                             style={{
-                              background: sel ? 'linear-gradient(135deg, #1e3a5f, #2d5a9e)' : '#f8fafc',
-                              color: sel ? '#fff' : '#374151',
-                              border: sel ? '1.5px solid #1e3a5f' : '1.5px solid #e2e8f0',
+                              background: sel ? 'linear-gradient(135deg, #1e3a5f, #2d5a9e)' : past ? '#f1f5f9' : '#f8fafc',
+                              color: sel ? '#fff' : past ? '#cbd5e1' : '#374151',
+                              border: sel ? '1.5px solid #1e3a5f' : past ? '1.5px solid #e5e7eb' : '1.5px solid #e2e8f0',
+                              cursor: past ? 'not-allowed' : 'pointer',
+                              textDecoration: past ? 'line-through' : 'none',
                             }}>
                             {slotLabel(h)}
                           </button>
@@ -258,6 +266,7 @@ export default function ReservePage() {
                       {[
                         { bg: '#f8fafc', border: '#e2e8f0', label: '선택 가능' },
                         { bg: 'linear-gradient(135deg, #1e3a5f, #2d5a9e)', border: '#1e3a5f', label: '선택됨' },
+                        { bg: '#f1f5f9', border: '#e5e7eb', label: '지난 시간' },
                       ].map((x) => (
                         <div key={x.label} className="flex items-center gap-1.5">
                           <div className="w-3 h-3 rounded" style={{ background: x.bg, border: `1px solid ${x.border}` }} />
