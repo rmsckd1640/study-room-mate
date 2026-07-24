@@ -8,7 +8,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -24,6 +23,7 @@ import com.mycom.myapp.domain.review.dto.ReviewUpdateRequest;
 import com.mycom.myapp.domain.review.dto.RoomRatingSummaryDto;
 import com.mycom.myapp.domain.review.service.ReviewService;
 import com.mycom.myapp.global.common.dto.ResultDto;
+import com.mycom.myapp.global.common.util.SecurityUtils;
 
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
@@ -35,11 +35,12 @@ import lombok.RequiredArgsConstructor;
 public class ReviewController {
 
 	private final ReviewService reviewService;
+	private final SecurityUtils securityUtils;
 
 	@Operation(description = "USER : 리뷰 생성")
 	@PostMapping
 	public ResponseEntity<ResultDto<ReviewResponseDto>> create(@RequestBody @Valid ReviewCreateRequest request) {
-		String username = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+		String username = securityUtils.getCurrentUsername();
 		ReviewResponseDto data = reviewService.createReview(username, request);
 		return ResponseEntity.status(HttpStatus.CREATED).body(ResultDto.<ReviewResponseDto>builder().message("리뷰 생성 성공").data(data).build());
 	}
@@ -47,7 +48,7 @@ public class ReviewController {
 	@Operation(description = "USER : 리뷰 수정")
 	@PatchMapping("/{id}")
 	public ResponseEntity<ResultDto<ReviewResponseDto>> update(@PathVariable("id") Long id, @RequestBody @Valid ReviewUpdateRequest request) {
-		String username = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+		String username = securityUtils.getCurrentUsername();
 		ReviewResponseDto data = reviewService.updateReview(username, id, request);
 		return ResponseEntity.ok(ResultDto.<ReviewResponseDto>builder().message("리뷰 수정 성공").data(data).build());
 	}
@@ -55,7 +56,7 @@ public class ReviewController {
 	@Operation(description = "USER : 리뷰 삭제")
 	@DeleteMapping("/{id}")
 	public ResponseEntity<ResultDto<Void>> delete(@PathVariable("id") Long id) {
-		String username = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+		String username = securityUtils.getCurrentUsername();
 		reviewService.deleteReview(username, id);
 		return ResponseEntity.ok(ResultDto.<Void>builder().message("리뷰 삭제 성공").data(null).build());
 	}
