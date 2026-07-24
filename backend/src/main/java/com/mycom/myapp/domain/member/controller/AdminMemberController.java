@@ -14,6 +14,7 @@ import com.mycom.myapp.domain.member.dto.MemberResponse;
 import com.mycom.myapp.domain.member.service.MemberService;
 import com.mycom.myapp.global.common.dto.ResultDto;
 
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -24,6 +25,7 @@ public class AdminMemberController {
 
     private final MemberService memberService;
 
+    @Operation(description = "ADMIN : 전체 회원 조회")
     @GetMapping
     public ResponseEntity<ResultDto<List<MemberResponse>>> getAllMembers() {
         List<MemberResponse> response = memberService.getAllMembers();
@@ -36,8 +38,9 @@ public class AdminMemberController {
         return ResponseEntity.ok(result);
     }
 
+    @Operation(description = "ADMIN : 특정 회원 조회")
     @GetMapping("/{id}")
-    public ResponseEntity<ResultDto<MemberResponse>> getMember(@PathVariable Long id) {
+    public ResponseEntity<ResultDto<MemberResponse>> getMember(@PathVariable("id") Long id) {
         MemberResponse response = memberService.getMember(id);
 
         ResultDto<MemberResponse> result = ResultDto.<MemberResponse>builder()
@@ -48,8 +51,9 @@ public class AdminMemberController {
         return ResponseEntity.ok(result);
     }
 
+    @Operation(description = "ADMIN : 회원 강제 탈퇴")
     @DeleteMapping("/{id}")
-    public ResponseEntity<ResultDto<Void>> withdrawMember(@PathVariable Long id) {
+    public ResponseEntity<ResultDto<Void>> withdrawMember(@PathVariable("id") Long id) {
         memberService.adminWithdraw(id);
 
         ResultDto<Void> result = ResultDto.<Void>builder()

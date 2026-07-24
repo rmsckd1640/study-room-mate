@@ -1,8 +1,8 @@
 package com.mycom.myapp.domain.reservation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.reset;
@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -70,7 +71,15 @@ public class ReservationAdminServiceTest {
 	private TossPaymentResponse tossResponseWithStatus(String status) {
 		return new TossPaymentResponse(
 				null, "test-payment-key", null, null, null, null, null, null,
-				null, null, status, null, null, null, null, null, null, null
+				null, null, status, null, null, null, null, null, null, null, null
+		);
+	}
+
+	private TossPaymentResponse tossCanceledResponse(long cancelAmount) {
+		return new TossPaymentResponse(
+				null, "test-payment-key", null, null, null, null, null, null,
+				null, null, "CANCELED", null, null, null, null, null, null, null,
+				List.of(new TossPaymentResponse.Cancel(null, null, cancelAmount, "DONE"))
 		);
 	}
 
@@ -132,9 +141,9 @@ public class ReservationAdminServiceTest {
 	public void confirm_PAYMENT_DONE아니면_예외() {
 		Reservation reservation = saveReservation(ReservationStatus.PENDING);
 
-		ResultDto<ReservationResponse> result = reservationAdminService.confirm(reservation.getId(), ReservationStatus.CONFIRMED);
+		assertThrows(IllegalStateException.class,
+				() -> reservationAdminService.confirm(reservation.getId(), ReservationStatus.CONFIRMED));
 
-		assertNotNull(result.getMessage());
 		assertEquals(ReservationStatus.PENDING, reservationRepository.findById(reservation.getId()).orElseThrow().getStatus());
 	}
 
@@ -152,7 +161,7 @@ public class ReservationAdminServiceTest {
 				.build());
 
 		when(tossPaymentService.cancel(anyString(), anyString(), any()))
-				.thenReturn(tossResponseWithStatus("CANCELED"));
+				.thenReturn(tossCanceledResponse(5000L));
 
 		ResultDto<ReservationResponse> result = reservationAdminService.reject(reservation.getId(), "관리자 거절 사유");
 
@@ -179,9 +188,9 @@ public class ReservationAdminServiceTest {
 		when(tossPaymentService.cancel(anyString(), anyString(), any()))
 				.thenReturn(tossResponseWithStatus("FAILED"));
 
-		ResultDto<ReservationResponse> result = reservationAdminService.reject(reservation.getId(), "관리자 거절 사유");
+		assertThrows(IllegalStateException.class,
+				() -> reservationAdminService.reject(reservation.getId(), "관리자 거절 사유"));
 
-		assertNotNull(result.getMessage());
 		assertEquals(ReservationStatus.PAYMENT_DONE, reservationRepository.findById(reservation.getId()).orElseThrow().getStatus());
 
 		Payment payment = paymentRepository.findByReservation_Id(reservation.getId()).orElseThrow();
@@ -192,9 +201,9 @@ public class ReservationAdminServiceTest {
 	public void reject_CONFIRMED상태는_현재_거절불가() {
 		Reservation reservation = saveReservation(ReservationStatus.CONFIRMED);
 
-		ResultDto<ReservationResponse> result = reservationAdminService.reject(reservation.getId(), "관리자 거절 사유");
+		assertThrows(IllegalStateException.class,
+				() -> reservationAdminService.reject(reservation.getId(), "관리자 거절 사유"));
 
-		assertNotNull(result.getMessage());
 		assertEquals(ReservationStatus.CONFIRMED, reservationRepository.findById(reservation.getId()).orElseThrow().getStatus());
 	}
 

@@ -37,6 +37,13 @@ public class GlobalExceptionHandler {
 		log.warn("IllegalArgumentException: {}", e.getMessage());
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ResultDto.<Void>builder().message(e.getMessage()).data(null).build());
 	}
+	
+	@ExceptionHandler(IllegalStateException.class)
+	public ResponseEntity<ResultDto<Void>> handleIllegalStaate(IllegalStateException e) {
+		// Room.update(), Room.changePrice() 내부에서 던지는 검증 예외
+		log.warn("IllegalStateException: {}", e.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ResultDto.<Void>builder().message(e.getMessage()).data(null).build());
+	}
 
 	@ExceptionHandler(AccessDeniedException.class)
 	public ResponseEntity<ResultDto<Void>> handleAccessDenied(AccessDeniedException e) {

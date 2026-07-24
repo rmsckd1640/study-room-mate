@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -29,6 +30,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -51,6 +53,7 @@ import com.mycom.myapp.global.common.dto.ResultDto;
 import com.mycom.myapp.global.common.enums.PaymentStatus;
 import com.mycom.myapp.global.common.enums.ReservationStatus;
 import com.mycom.myapp.global.common.util.RandomUtils;
+import com.mycom.myapp.global.exception.DuplicateReservationException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -100,7 +103,15 @@ public class ReservationServiceTest {
 	private TossPaymentResponse tossResponseWithStatus(String status) {
 		return new TossPaymentResponse(
 				null, "test-payment-key", null, null, null, null, null, null,
-				null, null, status, null, null, null, null, null, null, null
+				null, null, status, null, null, null, null, null, null, null, null
+		);
+	}
+
+	private TossPaymentResponse tossCanceledResponse(long cancelAmount) {
+		return new TossPaymentResponse(
+				null, "test-payment-key", null, null, null, null, null, null,
+				null, null, "CANCELED", null, null, null, null, null, null, null,
+				List.of(new TossPaymentResponse.Cancel(null, null, cancelAmount, "DONE"))
 		);
 	}
 
@@ -205,10 +216,9 @@ public class ReservationServiceTest {
 		assertNull(first.getMessage());
 
 		loginAs(member2);
-		ResultDto<ReservationResponse> second = reservationService.insert(
+		assertThrows(DuplicateReservationException.class, () -> reservationService.insert(
 				room.getId(), new ReservationInsertRequest(date, start, end, 5000L)
-		);
-		assertNotNull(second.getMessage());
+		));
 	}
 
 	@Test
@@ -226,9 +236,8 @@ public class ReservationServiceTest {
 				.build());
 
 		loginAs(stranger);
-		ResultDto<ReservationResponse> result = reservationService.cancel(reservation.getId(), "취소 사유");
+		assertThrows(AccessDeniedException.class, () -> reservationService.cancel(reservation.getId(), "취소 사유"));
 
-		assertNotNull(result.getMessage());
 		assertEquals(ReservationStatus.PENDING, reservationRepository.findById(reservation.getId()).orElseThrow().getStatus());
 		verify(tossPaymentService, never()).cancel(anyString(), anyString(), any());
 	}
@@ -277,7 +286,7 @@ public class ReservationServiceTest {
 				.build());
 
 		when(tossPaymentService.cancel(anyString(), anyString(), any()))
-				.thenReturn(tossResponseWithStatus("CANCELED"));
+				.thenReturn(tossCanceledResponse(5000L));
 
 		loginAs(member);
 		ResultDto<ReservationResponse> result = reservationService.cancel(reservation.getId(), "환불 요청");
@@ -316,9 +325,8 @@ public class ReservationServiceTest {
 				.thenReturn(tossResponseWithStatus("FAILED"));
 
 		loginAs(member);
-		ResultDto<ReservationResponse> result = reservationService.cancel(reservation.getId(), "환불 요청");
+		assertThrows(IllegalStateException.class, () -> reservationService.cancel(reservation.getId(), "환불 요청"));
 
-		assertNotNull(result.getMessage());
 		assertEquals(ReservationStatus.PAYMENT_DONE, reservationRepository.findById(reservation.getId()).orElseThrow().getStatus());
 
 		Payment payment = paymentRepository.findByReservation_Id(reservation.getId()).orElseThrow();

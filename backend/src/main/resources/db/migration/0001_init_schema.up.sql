@@ -99,6 +99,8 @@ CREATE TABLE `payment` (
   `amount` bigint NOT NULL,
   `approved_at` datetime(6) DEFAULT NULL,
   `cancel_reason` varchar(255) DEFAULT NULL,
+  `failure_reason` varchar(255) DEFAULT NULL,
+  `failed_at` datetime(6) DEFAULT NULL,
   `canceled_at` datetime(6) DEFAULT NULL,
   `created_at` datetime(6) NOT NULL,
   `order_id` varchar(255) NOT NULL,

@@ -36,7 +36,7 @@ public class PaymentControllerTest {
 	private TossPaymentResponse doneResponse(String orderId, String paymentKey, long amount) {
 		return new TossPaymentResponse(
 				null, paymentKey, null, orderId, null, null, null, null,
-				amount, amount, "DONE", null, null, null, null, null, null, null
+				amount, amount, "DONE", null, null, null, null, null, null, null, null
 		);
 	}
 
@@ -73,7 +73,7 @@ public class PaymentControllerTest {
 	}
 
 	@Test
-	public void confirm_서비스에서_예외발생시_500을_반환한다() throws Exception {
+	public void confirm_서비스에서_IllegalStateException발생시_400을_반환한다() throws Exception {
 		TossConfirmRequest request = new TossConfirmRequest("pk_test_123", "order-1", 5000);
 
 		when(tossPaymentService.confirm(any()))
@@ -82,7 +82,7 @@ public class PaymentControllerTest {
 		mockMvc.perform(post("/api/payment/confirm")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(request)))
-				.andExpect(status().isInternalServerError());
+				.andExpect(status().isBadRequest());
 	}
 
 }

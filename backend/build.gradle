@@ -20,35 +20,56 @@ repositories {
 }
 
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
-	implementation 'org.springframework.boot:spring-boot-starter-validation'
-	implementation 'org.springframework.boot:spring-boot-starter-mail'
-	implementation 'jakarta.validation:jakarta.validation-api:3.1.1'
-	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
 	
-	implementation 'org.springframework.boot:spring-boot-starter-webflux'
-	
-	// Source: https://mvnrepository.com/artifact/io.swagger.core.v3/swagger-annotations
-	implementation 'io.swagger.core.v3:swagger-annotations:2.2.52'
-	
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.5'
-	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
-	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
-	compileOnly 'org.projectlombok:lombok'
-	developmentOnly 'org.springframework.boot:spring-boot-devtools'
-	runtimeOnly 'com.mysql:mysql-connector-j'
-	annotationProcessor 'org.projectlombok:lombok'
-	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'com.h2database:h2'
+		
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+	
+	// Lombok
+	compileOnly 'org.projectlombok:lombok'
 	testCompileOnly 'org.projectlombok:lombok'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	annotationProcessor 'org.projectlombok:lombok'
 	testAnnotationProcessor 'org.projectlombok:lombok'
+	
+	// JUnit
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	
+	// MySQL
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	
+	// JWT
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+	
+	// JPA
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
+	
+	// swagger
+	implementation 'io.swagger.core.v3:swagger-annotations:2.2.52'
+	
+	// Validattion
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'jakarta.validation:jakarta.validation-api:3.1.1'
+	
+	// Mail
+	implementation 'org.springframework.boot:spring-boot-starter-mail'
+	
+	// Query DSL
+	implementation 'com.querydsl:querydsl-jpa:5.1.0:jakarta'
+    annotationProcessor 'com.querydsl:querydsl-apt:5.1.0:jakarta'
+    	
+    // Annotation
+    annotationProcessor 'jakarta.annotation:jakarta.annotation-api'
+    annotationProcessor 'jakarta.persistence:jakarta.persistence-api'
 }
 
 tasks.named('test') {
@@ -60,4 +81,23 @@ jacocoTestReport {
 	reports {
 		html.required = true
 	}
+}
+
+def generatedDir = "$buildDir/generated/querydsl"
+
+sourceSets {
+    main {
+        java {
+            srcDirs += [generatedDir]
+        }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.generatedSourceOutputDirectory = file(generatedDir)
+    options.compilerArgs << '-parameters'
+}
+
+clean {
+    delete file(generatedDir)
 }

@@ -3,6 +3,8 @@ package com.mycom.myapp.domain.review;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,10 +23,11 @@ import com.mycom.myapp.domain.review.repository.ReviewRepository;
 import com.mycom.myapp.domain.room.entity.Room;
 import com.mycom.myapp.domain.room.repository.RoomRepository;
 import com.mycom.myapp.global.config.JpaAuditingConfig;
+import com.mycom.myapp.global.config.QuerydslConfig;
 
 @DataJpaTest
 @EnableJpaRepositories(basePackageClasses = {ReviewRepository.class, RoomRepository.class, MemberRepository.class})
-@Import(JpaAuditingConfig.class)
+@Import({JpaAuditingConfig.class, QuerydslConfig.class})
 class ReviewRepositoryTest {
 
 	@Autowired
@@ -191,5 +194,42 @@ class ReviewRepositoryTest {
 		assertThat(activeReviews.get(0).getContent()).isEqualTo("다시 쓴 리뷰");
 
 		assertThat(reviewRepository.existsByMember_IdAndRoom_Id(member1.getId(), room1.getId())).isTrue();
+	}
+
+	@Test
+	@DisplayName("여러 room의 평균 평점과 리뷰 개수를 한 번에 집계한다")
+	void findRatingSummaryByRoomIds_성공() {
+		// given
+		reviewRepository.save(createReview(member1, room1, 5, "최고예요"));
+		reviewRepository.save(createReview(member2, room1, 3, "보통이에요"));
+		reviewRepository.save(createReview(member1, room2, 4, "좋아요"));
+
+		// when
+		List<Object[]> result = reviewRepository.findRatingSummaryByRoomIds(List.of(room1.getId(), room2.getId()));
+
+		// then
+		Map<Long, Object[]> summaryMap = result.stream().collect(Collectors.toMap(row -> (Long) row[0], row -> row));
+
+		Object[] room1Summary = summaryMap.get(room1.getId());
+		assertThat((Double) room1Summary[1]).isEqualTo(4.0); // (5+3)/2
+		assertThat((Long) room1Summary[2]).isEqualTo(2L);
+
+		Object[] room2Summary = summaryMap.get(room2.getId());
+		assertThat((Double) room2Summary[1]).isEqualTo(4.0);
+		assertThat((Long) room2Summary[2]).isEqualTo(1L);
+	}
+
+	@Test
+	@DisplayName("리뷰가 없는 room은 결과에 포함되지 않는다")
+	void findRatingSummaryByRoomIds_리뷰없는room제외() {
+		// given
+		reviewRepository.save(createReview(member1, room1, 5, "최고예요"));
+		// room2에는 리뷰 없음
+
+		// when
+		List<Object[]> result = reviewRepository.findRatingSummaryByRoomIds(List.of(room1.getId(), room2.getId()));
+
+		// then
+		assertThat(result).hasSize(1); // room1만 나옴, room2는 GROUP BY 대상 자체가 없음
 	}
 }

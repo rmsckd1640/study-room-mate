@@ -63,6 +63,12 @@ public class Payment {
 	@Column(name = "cancel_reason")
 	private String cancelReason;
 
+	@Column(name = "failure_reason")
+	private String failureReason;
+
+	@Column(name = "failed_at")
+	private LocalDateTime failedAt;
+
 	@CreationTimestamp
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private LocalDateTime createdAt;
@@ -77,6 +83,14 @@ public class Payment {
 		this.status = PaymentStatus.CANCELED;
 		this.canceledAt = LocalDateTime.now();
 		this.cancelReason = reason;
+	}
+
+	// 토스 결제는 승인됐지만 로컬 저장 트랜잭션이 실패해 보상 취소(compensateByCancel)로 환불한 경우,
+	// 관리자가 예약 목록에서 실패 이력을 조회할 수 있도록 남겨두는 상태.
+	public void fail(String reason) {
+		this.status = PaymentStatus.FAILED;
+		this.failureReason = reason;
+		this.failedAt = LocalDateTime.now();
 	}
 
 }
