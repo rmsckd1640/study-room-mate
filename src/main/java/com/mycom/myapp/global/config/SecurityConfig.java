@@ -46,8 +46,11 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        // Vite 프론트 개발 서버 주소만 허용
-        config.setAllowedOrigins(List.of("http://localhost:5173"));
+        // 로컬 Vite 개발 서버 + GitHub Pages 배포본(로컬 백엔드를 호출하는 화면 검토용)
+        config.setAllowedOrigins(List.of(
+                "http://localhost:5173",
+                "https://rmsckd1640.github.io"
+        ));
         config.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
         // Authorization(JWT), Content-Type 등 요청 헤더 전부 허용
         config.setAllowedHeaders(List.of("*"));
