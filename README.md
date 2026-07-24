@@ -31,7 +31,7 @@ cp backend/src/main/resources/application-local.properties.example backend/src/m
 |---|---|
 | `spring.datasource.*` | MySQL 접속 정보 |
 | `jwt.secret` | JWT 서명 키 |
-| `toss.payment.toss-secret-key` | Toss Payments 시크릿 키 |
+| `toss.payment.toss-secret-key` | Toss Payments 시크릿 키. 프론트가 결제위젯 SDK(`test_gck_...`)로 연동돼 있어서 **반드시 짝이 맞는 위젯 연동 시크릿 키**를 써야 한다 (구버전 `test_sk_...` 개별 연동 키는 `NotSupportedAPIIndividualKeyError`로 실패함). 회원가입 전 테스트용: `test_gsk_docs_OaPz8L5KdmQXkzRz3y47BMw6` |
 | `spring.mail.*` | Gmail 발신 계정 (2단계 인증 후 앱 비밀번호 발급) |
 | `app.password-reset-url` | 비밀번호 재설정 메일에 삽입되는 프론트엔드 주소 |
 

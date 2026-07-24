@@ -65,7 +65,8 @@ export default function PaymentPage() {
         })
 
         setWidgetReady(true)
-      } catch {
+      } catch (err) {
+        console.error('Toss 결제 위젯 로드 실패:', err)
         if (!cancelled) setWidgetError('결제 위젯을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.')
       }
     })()
