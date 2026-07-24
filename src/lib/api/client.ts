@@ -50,7 +50,7 @@ function buildUrl(path: string, query?: Record<string, QueryValue>): string {
       if (value !== undefined && value !== null) url.searchParams.set(key, String(value))
     }
   }
-  return url.pathname + url.search
+  return url.toString()
 }
 
 async function rawRequest(path: string, options: ApiFetchOptions): Promise<{ status: number; body: unknown }> {
