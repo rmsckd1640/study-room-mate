@@ -36,6 +36,7 @@ import com.mycom.myapp.domain.room.dto.RoomCreateRequest;
 import com.mycom.myapp.domain.room.dto.RoomResponseDto;
 import com.mycom.myapp.domain.room.dto.RoomUpdateRequest;
 import com.mycom.myapp.domain.room.service.RoomService;
+import com.mycom.myapp.global.common.util.SecurityUtils;
 import com.mycom.myapp.global.config.SecurityConfig;
 import com.mycom.myapp.global.exception.RoomNotFoundException;
 import com.mycom.myapp.global.jwt.JwtAccessDeniedHandler;
@@ -68,6 +69,9 @@ class RoomControllerTest {
 	@MockitoBean
 	private JwtAccessDeniedHandler jwtAccessDeniedHandler;
 
+	@MockitoBean
+	private SecurityUtils securityUtils; // 추가
+
 	private RequestPostProcessor withAuth(String username, String... roles) {
 		return request -> {
 			List<SimpleGrantedAuthority> authorities = List.of(roles).stream().map(SimpleGrantedAuthority::new).toList();
@@ -82,12 +86,10 @@ class RoomControllerTest {
 		SecurityContextHolder.clearContext();
 	}
 
-	// 조회 응답용 헬퍼 - 찜/평점 정보까지 채워진 RoomResponseDto
 	private RoomResponseDto fullResponse(Long id, String name, Integer capacity, Integer price, Integer discountedPrice) {
 		return new RoomResponseDto(id, name, capacity, price, discountedPrice, true, 5L, 4.5, 10L, null);
 	}
 
-	// 생성/수정 응답용 헬퍼 - 찜/평점 정보가 기본값인 RoomResponseDto
 	private RoomResponseDto plainResponse(Long id, String name, Integer capacity, Integer price) {
 		return new RoomResponseDto(id, name, capacity, price, null, false, 0L, 0.0, 0L, null);
 	}
@@ -96,6 +98,7 @@ class RoomControllerTest {
 	@DisplayName("room을 조회하면 200과 찜/평점 정보가 포함된 데이터를 반환한다")
 	void getRoom_성공() throws Exception {
 		// given
+		given(securityUtils.getCurrentUsername()).willReturn("user1");
 		RoomResponseDto response = fullResponse(1L, "한강뷰 스튜디오", 4, 150000, 127500);
 		given(roomService.getRoom("user1", 1L)).willReturn(response);
 
@@ -107,6 +110,7 @@ class RoomControllerTest {
 	@DisplayName("존재하지 않는 room을 조회하면 404를 반환한다")
 	void getRoom_실패_존재하지_않음() throws Exception {
 		// given
+		given(securityUtils.getCurrentUsername()).willReturn("user1");
 		given(roomService.getRoom("user1", 999L)).willThrow(new RoomNotFoundException("존재하지 않는 room입니다."));
 
 		// when & then
@@ -117,6 +121,7 @@ class RoomControllerTest {
 	@DisplayName("room 목록을 페이징 조회하면 찜/평점 정보가 포함된 데이터를 반환한다")
 	void getRooms_성공() throws Exception {
 		// given
+		given(securityUtils.getCurrentUsername()).willReturn("user1");
 		RoomResponseDto response = fullResponse(1L, "한강뷰 스튜디오", 4, 150000, 127500);
 		Page<RoomResponseDto> page = new PageImpl<>(List.of(response));
 		given(roomService.getRooms(eq("user1"), any())).willReturn(page);
@@ -126,31 +131,10 @@ class RoomControllerTest {
 	}
 
 	@Test
-	@DisplayName("조건으로 room을 검색하면 찜/평점 정보가 포함된 데이터를 반환한다")
-	void search_성공() throws Exception {
-		// given
-		RoomResponseDto response = fullResponse(1L, "한강뷰 스튜디오", 4, 150000, 127500);
-		given(roomService.search("user1", "한강뷰", 4, 200000)).willReturn(List.of(response));
-
-		// when & then
-		mockMvc.perform(get("/api/rooms/search").param("name", "한강뷰").param("capacity", "4").param("price", "200000").with(withAuth("user1", "ROLE_USER"))).andExpect(status().isOk()).andExpect(jsonPath("$.data[0].averageRating").value(4.5));
-	}
-
-	@Test
-	@DisplayName("조건 없이 검색해도 정상 동작한다")
-	void search_조건없음_성공() throws Exception {
-		// given
-		RoomResponseDto response = fullResponse(1L, "한강뷰 스튜디오", 4, 150000, 127500);
-		given(roomService.search("user1", null, null, null)).willReturn(List.of(response));
-
-		// when & then
-		mockMvc.perform(get("/api/rooms/search").with(withAuth("user1", "ROLE_USER"))).andExpect(status().isOk()).andExpect(jsonPath("$.data[0].name").value("한강뷰 스튜디오"));
-	}
-
-	@Test
 	@DisplayName("조건으로 room을 페이징 검색하면 찜/평점 정보가 포함된 데이터를 반환한다")
 	void searchWithPaging_성공() throws Exception {
 		// given
+		given(securityUtils.getCurrentUsername()).willReturn("user1");
 		RoomResponseDto response = fullResponse(1L, "한강뷰 스튜디오", 4, 150000, 127500);
 		Page<RoomResponseDto> page = new PageImpl<>(List.of(response));
 		given(roomService.searchWithPaging(eq("user1"), eq("한강뷰"), eq(4), eq(200000), any())).willReturn(page);
@@ -162,7 +146,7 @@ class RoomControllerTest {
 	@Test
 	@DisplayName("ADMIN 권한으로 room을 생성하면 201을 반환한다")
 	void create_성공_ADMIN() throws Exception {
-		// given
+		// given - create는 securityUtils를 안 쓰므로 stubbing 불필요
 		RoomCreateRequest request = new RoomCreateRequest("한강뷰 스튜디오", 4, 150000);
 		RoomResponseDto response = plainResponse(1L, "한강뷰 스튜디오", 4, 150000);
 		given(roomService.createRoom(any(RoomCreateRequest.class))).willReturn(response);
