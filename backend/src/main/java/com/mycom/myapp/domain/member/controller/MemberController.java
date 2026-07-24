@@ -47,7 +47,7 @@ public class MemberController {
     @Operation(description = "USER : 마이페이지 조회")
     @GetMapping("/{id}")
     public ResponseEntity<ResultDto<MemberResponse>> getMyPage(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @AuthenticationPrincipal String username) {
         MemberResponse response = memberService.getMyPage(id, username);
 
@@ -62,7 +62,7 @@ public class MemberController {
     @Operation(description = "USER : 회원 정보 수정")
     @PatchMapping("/{id}")
     public ResponseEntity<ResultDto<MemberResponse>> updateInfo(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @AuthenticationPrincipal String username,
             @Valid @RequestBody MemberUpdateRequest request) {
         MemberResponse response = memberService.updateInfo(id, username, request);
@@ -78,7 +78,7 @@ public class MemberController {
     @Operation(description = "USER : 비밀번호 변경")
     @PatchMapping("/{id}/password")
     public ResponseEntity<ResultDto<Void>> changePassword(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @AuthenticationPrincipal String username,
             @Valid @RequestBody PasswordChangeRequest request) {
         memberService.changePassword(id, username, request);
@@ -94,7 +94,7 @@ public class MemberController {
     @Operation(description = "USER : 회원 탈퇴")
     @DeleteMapping("/{id}")
     public ResponseEntity<ResultDto<Void>> withdraw(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @AuthenticationPrincipal String username,
             @Valid @RequestBody WithdrawRequest request) {
         memberService.withdraw(id, username, request);

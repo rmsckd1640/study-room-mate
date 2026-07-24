@@ -56,7 +56,7 @@ public class ReservationAdminController {
 	@PostMapping("/{id}/confirm")
 	public ResponseEntity<ResultDto<ReservationResponse>> confirm(
 	        @PathVariable("id") Long reservationId,
-	        @RequestParam ReservationStatus status) {
+	        @RequestParam("status") ReservationStatus status) {
 	    return ResponseEntity.ok(reservationAdminService.confirm(reservationId, status));
 	}
 
