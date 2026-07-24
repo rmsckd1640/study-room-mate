@@ -39,7 +39,7 @@ jobs:
         env:
           GITHUB_PAGES: 'true'
           VITE_API_BASE_URL: http://localhost:8080
-          VITE_TOSS_CLIENT_KEY: test_ck_LlDJaYngro22ayRNZlkXVezGdRpX
+          VITE_TOSS_CLIENT_KEY: test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm
         run: pnpm build
 
       - uses: actions/configure-pages@v5
