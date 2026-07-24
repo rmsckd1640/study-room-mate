@@ -1,5 +1,7 @@
 package com.mycom.myapp.global.config;
 
+import java.util.List;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -12,6 +14,9 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.mycom.myapp.global.jwt.JwtAccessDeniedHandler;
 import com.mycom.myapp.global.jwt.JwtAuthFilter;
@@ -39,8 +44,26 @@ public class SecurityConfig {
     }
 
     @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        // Vite 프론트 개발 서버 주소만 허용
+        config.setAllowedOrigins(List.of("http://localhost:5173"));
+        config.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
+        // Authorization(JWT), Content-Type 등 요청 헤더 전부 허용
+        config.setAllowedHeaders(List.of("*"));
+        // JWT를 쿠키가 아니라 헤더로 주고받으므로 자격 증명(쿠키) 공유는 불필요
+        config.setAllowCredentials(false);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
+
+    @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+            // 위에서 정의한 CORS 설정을 필터 체인에 적용
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             // JWT는 쿠키/세션이 아니라 헤더로 토큰을 주고받아서 CSRF 공격 경로 자체가 없음 -> 끔
             .csrf(AbstractHttpConfigurer::disable)
             // 우리가 직접 로그인 API로 JWT를 발급할 거라 Spring 기본 로그인 폼/HTTP Basic은 불필요 -> 끔
