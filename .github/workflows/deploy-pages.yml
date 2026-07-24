@@ -1,0 +1,59 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [front]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable pnpm via corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        env:
+          GITHUB_PAGES: 'true'
+          # 각자 로컬에서 띄운 백엔드(localhost:8080)를 각자의 브라우저가 호출하는 구조.
+          # 공개 배포용 백엔드가 생기면 이 값을 그 주소로 바꾼다.
+          VITE_API_BASE_URL: http://localhost:8080
+          # Toss 결제위젯 클라이언트 키는 프론트 번들에 노출되는 게 정상(공개용 test 키)이라 그대로 둠.
+          VITE_TOSS_CLIENT_KEY: test_ck_LlDJaYngro22ayRNZlkXVezGdRpX
+        run: pnpm build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

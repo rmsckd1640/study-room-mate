@@ -11,7 +11,13 @@ export default defineConfig(({ mode }) => {
   const emitSourcemaps = mode === 'development'
 
   return {
-    base: process.env.FIGMA_PUBLIC_URL ? `${process.env.FIGMA_PUBLIC_URL}/` : '/',
+    // GitHub Pages project 사이트(username.github.io/저장소명)는 서브패스로 서빙되므로
+    // 배포 워크플로우에서 GITHUB_PAGES=true와 함께 빌드해 base를 맞춘다.
+    base: process.env.GITHUB_PAGES
+      ? '/study-room-mate/'
+      : process.env.FIGMA_PUBLIC_URL
+        ? `${process.env.FIGMA_PUBLIC_URL}/`
+        : '/',
     build: {
       sourcemap: emitSourcemaps ? 'inline' : false,
       minify: !emitSourcemaps,
