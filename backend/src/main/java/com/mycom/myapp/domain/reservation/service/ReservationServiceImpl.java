@@ -5,8 +5,11 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -71,7 +74,10 @@ public class ReservationServiceImpl implements ReservationService {
 												.room(room)
 												.member(member)
 												.status(ReservationStatus.PENDING)
-												.reservationDate(LocalDate.now())
+												// 예약을 생성한 날짜가 아니라 실제 이용 날짜를 저장해야 한다.
+												// LocalDate.now()로 잘못 넣으면 다음날 이후 슬롯을 예약해도 화면엔 오늘 날짜로 표시되어,
+												// 서로 다른 날짜의 예약이 같은 시간대의 중복 예약처럼 보이는 문제가 있었다.
+												.reservationDate(request.startTime().toLocalDate())
 												.startTime(request.startTime())
 												.endTime(request.endTime())
 												.build();
@@ -88,7 +94,8 @@ public class ReservationServiceImpl implements ReservationService {
 		payment = paymentRepository.save(payment);
 
 		ReservationResponse savedData = reservation.toResponse()
-													.withOrderId(payment.getOrderId());
+													.withOrderId(payment.getOrderId())
+													.withAmount(payment.getAmount());
 
 		resultDto.setData(savedData);
 
@@ -100,14 +107,36 @@ public class ReservationServiceImpl implements ReservationService {
 
 		String username = securityUtils.getCurrentUsername();
 
-		List<ReservationResponse> reservations = reservationRepository.findByMember_UsernameAndDeletedAtIsNull(username)
-																		.stream()
-																		.map(Reservation::toResponse)
-																		.toList();
+		List<Reservation> reservations = reservationRepository.findByMember_UsernameAndDeletedAtIsNull(username);
 
-		resultDto.setData(reservations);
+		resultDto.setData(attachPaymentInfo(reservations));
 
 		return resultDto;
+	}
+
+	// PENDING(결제 대기/실패) 예약을 프론트에서 재결제할 수 있으려면 orderId·amount가 있어야 하는데
+	// Reservation.toResponse()만으로는 Payment 정보에 접근할 수 없다. 예약 ID로 결제건을 한 번에 배치
+	// 조회해서(N+1 방지) 응답에 채워 넣는다.
+	private List<ReservationResponse> attachPaymentInfo(List<Reservation> reservations) {
+		List<Long> reservationIds = reservations.stream().map(Reservation::getId).toList();
+
+		Map<Long, Payment> paymentByReservationId = paymentRepository.findByReservation_IdIn(reservationIds)
+																		.stream()
+																		.collect(Collectors.toMap(
+																				payment -> payment.getReservation().getId(),
+																				Function.identity()
+																		));
+
+		return reservations.stream()
+							.map(reservation -> {
+								ReservationResponse response = reservation.toResponse();
+								Payment payment = paymentByReservationId.get(reservation.getId());
+
+								return payment != null
+										? response.withOrderId(payment.getOrderId()).withAmount(payment.getAmount())
+										: response;
+							})
+							.toList();
 	}
 
 	public ResultDto<List<ReservationResponse>> myList(Long roomId) {

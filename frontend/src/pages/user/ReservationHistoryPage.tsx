@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router'
+import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 import * as reservationsApi from '../../lib/api/reservations'
 import * as roomsApi from '../../lib/api/rooms'
@@ -67,6 +68,7 @@ interface EnrichedReservation {
 export default function ReservationHistoryPage() {
   const navigate = useNavigate()
   const { showToast } = useToast()
+  const { name, email } = useAuth()
 
   const [loading, setLoading] = useState(true)
   const [items, setItems] = useState<EnrichedReservation[]>([])
@@ -108,6 +110,32 @@ export default function ReservationHistoryPage() {
     } catch (err) {
       showToast(err instanceof ApiError ? err.message : '예약 취소에 실패했습니다.', 'error')
     }
+  }
+
+  // 결제 실패/미완료로 PENDING에 머무른 예약을 예약 내역에서 바로 재결제할 수 있도록,
+  // 기존 예약(orderId)·결제 금액(amount) 그대로 결제 페이지로 되돌아간다 (새 예약을 만들지 않음).
+  const handleRetryPayment = (r: ReservationResponse, room: RoomResponseDto | null) => {
+    const startHour = new Date(r.startTime).getHours()
+    const endHour = new Date(r.endTime).getHours()
+    const selectedHours = Array.from({ length: endHour - startHour }, (_, i) => startHour + i)
+
+    navigate(`/user/rooms/${r.roomId}/payment`, {
+      state: {
+        roomId: r.roomId,
+        roomName: room?.name ?? `방 #${r.roomId}`,
+        date: r.reservationDate,
+        startHour,
+        endHour,
+        selectedHours,
+        price: r.amount,
+        basePrice: r.amount,
+        discount: 0,
+        orderId: r.orderId,
+        reservationId: r.id,
+        customerName: name,
+        customerEmail: email,
+      },
+    })
   }
 
   if (loading) {
@@ -198,11 +226,20 @@ export default function ReservationHistoryPage() {
                         style={{ background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0' }}>
                         룸 보기
                       </button>
-                      {uiStatus === 'confirmed' && (
+                      {/* 백엔드 cancel()은 PENDING/PAYMENT_DONE/CONFIRMED 전부 취소를 허용한다
+                          (결제 전이면 그냥 취소, 결제 후면 Toss 환불 후 취소). CANCELLED/REJECTED는 이미 종결 상태라 제외. */}
+                      {(uiStatus === 'pending' || uiStatus === 'payment_done' || uiStatus === 'confirmed') && (
                         <button onClick={() => setCancelId(r.id)}
                           className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90"
                           style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
                           취소하기
+                        </button>
+                      )}
+                      {uiStatus === 'pending' && (
+                        <button onClick={() => handleRetryPayment(r, room)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-90"
+                          style={{ background: '#0064FF' }}>
+                          결제하기
                         </button>
                       )}
                     </div>

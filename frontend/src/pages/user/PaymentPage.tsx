@@ -37,7 +37,7 @@ export default function PaymentPage() {
   const [requesting, setRequesting]   = useState(false)
 
   useEffect(() => {
-    if (!state) return
+    if (!state || typeof state.price !== 'number') return
     if (!TOSS_CLIENT_KEY) {
       setWidgetError('결제 위젯 설정(VITE_TOSS_CLIENT_KEY)이 누락되었습니다.')
       return
@@ -75,7 +75,7 @@ export default function PaymentPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.orderId])
 
-  if (!state) {
+  if (!state || typeof state.price !== 'number' || typeof state.basePrice !== 'number' || !state.orderId) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4">
         <p className="text-sm text-gray-400">결제 정보를 찾을 수 없습니다.</p>

@@ -150,6 +150,7 @@ export interface ReservationResponse {
   id: number
   roomId: number
   orderId: string
+  amount: number
   reservationDate: string
   startTime: string
   endTime: string
