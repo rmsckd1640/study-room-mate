@@ -17,6 +17,7 @@ import com.mycom.myapp.domain.payment.repository.PaymentRepository;
 import com.mycom.myapp.domain.reservation.repository.ReservationRepository;
 import com.mycom.myapp.global.common.enums.PaymentStatus;
 import com.mycom.myapp.global.common.util.SecurityUtils;
+import com.mycom.myapp.global.exception.PaymentNotFoundException;
 import com.mycom.myapp.global.exception.TossPaymentException;
 
 import lombok.RequiredArgsConstructor;
@@ -35,7 +36,7 @@ public class TossPaymentServiceImpl implements TossPaymentService {
 
 	public TossPaymentResponse confirm(TossConfirmRequest request) {
 		Payment payment = paymentRepository.findByOrderId(request.orderId())
-				.orElseThrow(() -> new IllegalStateException("결제 정보를 찾을 수 없습니다."));
+				.orElseThrow(() -> new PaymentNotFoundException("결제 정보를 찾을 수 없습니다."));
 
 		String username = securityUtils.getCurrentUsername();
 		if (!payment.getReservation().getMember().getUsername().equals(username)) {
@@ -103,6 +104,7 @@ public class TossPaymentServiceImpl implements TossPaymentService {
 			log.error("결제 승인 후처리 실패, Toss 결제 자동 취소를 시도합니다 - orderId: {}, paymentKey: {}",
 					payment.getOrderId(), response.paymentKey(), e);
 			compensateByCancel(response.paymentKey());
+			markPaymentFailed(payment.getId(), e.getMessage());
 			throw new TossPaymentException("결제 후처리 중 오류가 발생하여 결제가 취소되었습니다.",
 					HttpStatus.INTERNAL_SERVER_ERROR, HttpStatus.INTERNAL_SERVER_ERROR);
 		}
@@ -113,6 +115,22 @@ public class TossPaymentServiceImpl implements TossPaymentService {
 			cancel(paymentKey, "결제 후처리 실패로 인한 자동 취소", null);
 		} catch (Exception cancelEx) {
 			log.error("[결제 정합성 경고] paymentKey={} 자동 취소마저 실패했습니다. 수동 확인이 필요합니다.", paymentKey, cancelEx);
+		}
+	}
+
+	// 위 completePayment()의 트랜잭션이 롤백되면 실패했다는 사실 자체가 DB에 남지 않아 관리자가 조회할 방법이 없다.
+	// 그래서 실패 표시만 별도 트랜잭션으로 다시 저장한다. payment는 롤백된 트랜잭션에서 꺼내온 인스턴스라
+	// complete() 호출로 오염된 필드가 남아 있을 수 있으므로, id로 새로 조회해 깨끗한 상태에서 fail()을 적용한다.
+	private void markPaymentFailed(Long paymentId, String reason) {
+		try {
+			new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+				Payment freshPayment = paymentRepository.findById(paymentId)
+						.orElseThrow(() -> new PaymentNotFoundException("결제 정보를 찾을 수 없습니다."));
+				freshPayment.fail(reason);
+				paymentRepository.save(freshPayment);
+			});
+		} catch (Exception e) {
+			log.error("[결제 정합성 경고] paymentId={} 실패 이력 저장마저 실패했습니다. 수동 확인이 필요합니다.", paymentId, e);
 		}
 	}
 

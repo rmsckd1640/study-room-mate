@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -28,15 +29,17 @@ import com.mycom.myapp.global.common.enums.PaymentStatus;
 import com.mycom.myapp.global.common.enums.ReservationStatus;
 import com.mycom.myapp.global.common.util.SecurityUtils;
 import com.mycom.myapp.global.exception.DuplicateReservationException;
+import com.mycom.myapp.global.exception.PaymentNotFoundException;
 import com.mycom.myapp.global.exception.ReservationNotFoundException;
 
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class ReservationServiceImpl implements ReservationService {
 
 	private final ReservationRepository reservationRepository;
@@ -53,11 +56,15 @@ public class ReservationServiceImpl implements ReservationService {
 
 		String username = securityUtils.getCurrentUsername();
 
-		Room room = roomRepository.findByIdForUpdate(roomId).orElseThrow();
+		Room room = roomRepository.findByIdForUpdate(roomId).orElseThrow(() -> {
+			throw new NoSuchElementException("방을 찾을 수 없습니다");
+		});
 
 		validateNoDuplicateReservation(roomId, request);
 
-		Member member = memberRepository.findByUsername(username).orElseThrow();
+		Member member = memberRepository.findByUsername(username).orElseThrow(() -> {
+			throw new NoSuchElementException("사용자를 찾을 수 없습니다.");
+		});
 
 		Reservation reservation = Reservation.builder()
 												.room(room)
@@ -108,32 +115,6 @@ public class ReservationServiceImpl implements ReservationService {
 		String username = securityUtils.getCurrentUsername();
 
 		List<ReservationResponse> reservations = reservationRepository.findByRoomIdAndMember_UsernameAndDeletedAtIsNull(roomId, username)
-																		.stream()
-																		.map(Reservation::toResponse)
-																		.toList();
-
-		resultDto.setData(reservations);
-
-		return resultDto;
-	}
-
-	public ResultDto<List<ReservationResponse>> list() {
-		ResultDto<List<ReservationResponse>> resultDto = new ResultDto<>();
-
-		List<ReservationResponse> reservations = reservationRepository.findAll()
-																		.stream()
-																		.map(Reservation::toResponse)
-																		.toList();
-
-		resultDto.setData(reservations);
-
-		return resultDto;
-	}
-
-	public ResultDto<List<ReservationResponse>> list(Long roomId) {
-		ResultDto<List<ReservationResponse>> resultDto = new ResultDto<>();
-
-		List<ReservationResponse> reservations = reservationRepository.findByRoomIdAndDeletedAtIsNull(roomId)
 																		.stream()
 																		.map(Reservation::toResponse)
 																		.toList();
@@ -245,7 +226,7 @@ public class ReservationServiceImpl implements ReservationService {
 	
 	private void refundAndCancel(Reservation reservation, String reason) {
 		Payment payment = paymentRepository.findByReservation_Id(reservation.getId())
-				.orElseThrow(() -> new IllegalStateException("결제 정보를 찾을 수 없습니다."));
+				.orElseThrow(() -> new PaymentNotFoundException("결제 정보를 찾을 수 없습니다."));
 
 		// Toss 환불 요청 - 여기서 실패하면 아직 우리 쪽엔 확정된 상태 변경이 없다.
 		TossPaymentResponse response = tossPaymentService.cancel(payment.getPaymentKey(), reason, null);
@@ -264,7 +245,24 @@ public class ReservationServiceImpl implements ReservationService {
 		} catch (Exception e) {
 			log.error("[결제 정합성 경고] Toss 환불은 성공했으나 로컬 반영에 실패했습니다 - reservationId: {}, paymentKey: {}. 수동 확인이 필요합니다.",
 					reservation.getId(), payment.getPaymentKey(), e);
+			markPaymentFailed(payment.getId(), "Toss 환불(예약 취소) 성공 후 로컬 반영 실패: " + e.getMessage());
 			throw e;
+		}
+	}
+
+	// 위 catch에서 로그만 남기면 "Toss 환불은 됐는데 로컬은 그대로"인 사실이 DB 어디에도 남지 않아
+	// 관리자가 admin 목록에서 확인할 방법이 없다. 그래서 별도 트랜잭션으로 결제 건에 FAILED 이력을 남긴다.
+	// payment는 롤백된 트랜잭션에서 꺼내온 인스턴스라 필드가 오염돼 있을 수 있으므로 id로 새로 조회한다.
+	private void markPaymentFailed(Long paymentId, String reason) {
+		try {
+			new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+				Payment freshPayment = paymentRepository.findById(paymentId)
+						.orElseThrow(() -> new PaymentNotFoundException("결제 정보를 찾을 수 없습니다."));
+				freshPayment.fail(reason);
+				paymentRepository.save(freshPayment);
+			});
+		} catch (Exception e) {
+			log.error("[결제 정합성 경고] paymentId={} 실패 이력 저장마저 실패했습니다. 수동 확인이 필요합니다.", paymentId, e);
 		}
 	}
 
