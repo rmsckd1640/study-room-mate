@@ -32,6 +32,7 @@ import com.mycom.myapp.global.exception.DuplicateReservationException;
 import com.mycom.myapp.global.exception.PaymentNotFoundException;
 import com.mycom.myapp.global.exception.ReservationNotFoundException;
 
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -126,7 +127,10 @@ public class ReservationServiceImpl implements ReservationService {
 
 	// Toss 환불 호출(외부 I/O)이 DB 트랜잭션을 물고 있으면, 환불은 성공했는데 이후 로컬 저장이
 	// 실패했을 때 트랜잭션 전체가 롤백되어 "돈은 나갔는데 예약은 그대로 유효"인 정합성 불일치가 생긴다.
-	// 그래서 이 메서드는 의도적으로 @Transactional을 붙이지 않고, 각 단계에서 명시적으로 save한다.
+	// 그래서 이 메서드는 의도적으로 각 단계에서 명시적으로 save한다.
+	// 클래스 레벨 @Transactional(readOnly = true)이 상속되면 이 메서드도 read-only 트랜잭션으로 묶여
+	// save()가 예외 없이 조용히 flush되지 않는다 - NOT_SUPPORTED로 상속을 끊어 순수 non-tx로 실행한다.
+	@Transactional(propagation = Propagation.NOT_SUPPORTED)
 	public ResultDto<ReservationResponse> cancel(Long reservationId, String reason) {
 		ResultDto<ReservationResponse> resultDto = new ResultDto<>();
 
