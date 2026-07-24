@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -23,10 +25,11 @@ import com.mycom.myapp.domain.room.repository.RoomRepository;
 import com.mycom.myapp.domain.wishlist.entity.Wishlist;
 import com.mycom.myapp.domain.wishlist.repository.WishlistRepository;
 import com.mycom.myapp.global.config.JpaAuditingConfig;
+import com.mycom.myapp.global.config.QuerydslConfig;
 
 @DataJpaTest
 @EnableJpaRepositories(basePackageClasses = {WishlistRepository.class, RoomRepository.class, MemberRepository.class})
-@Import(JpaAuditingConfig.class)
+@Import({JpaAuditingConfig.class, QuerydslConfig.class})
 class WishlistRepositoryTest {
 
 	@Autowired
@@ -165,5 +168,47 @@ class WishlistRepositoryTest {
 		// then
 		assertThat(newWishlist.getId()).isNotNull();
 		assertThat(wishlistRepository.existsByMember_IdAndRoom_Id(member1.getId(), room1.getId())).isTrue();
+	}
+
+	@Test
+	@DisplayName("여러 room에 대해 찜한 room id만 골라낸다")
+	void findWishlistedRoomIds_성공() {
+		// given
+		wishlistRepository.save(createWishlist(member1, room1));
+		// room2는 찜 안 함
+
+		// when
+		List<Long> result = wishlistRepository.findWishlistedRoomIds(member1.getId(), List.of(room1.getId(), room2.getId()));
+
+		// then
+		assertThat(result).containsExactly(room1.getId());
+	}
+
+	@Test
+	@DisplayName("찜한 게 하나도 없으면 빈 리스트를 반환한다")
+	void findWishlistedRoomIds_찜없음() {
+		// when
+		List<Long> result = wishlistRepository.findWishlistedRoomIds(member1.getId(), List.of(room1.getId(), room2.getId()));
+
+		// then
+		assertThat(result).isEmpty();
+	}
+
+	@Test
+	@DisplayName("여러 room의 찜 개수를 한 번에 집계한다")
+	void countByRoomIdIn_성공() {
+		// given
+		wishlistRepository.save(createWishlist(member1, room1));
+		wishlistRepository.save(createWishlist(member2, room1));
+		wishlistRepository.save(createWishlist(member1, room2));
+
+		// when
+		List<Object[]> result = wishlistRepository.countByRoomIdIn(List.of(room1.getId(), room2.getId()));
+
+		// then
+		Map<Long, Long> countMap = result.stream().collect(Collectors.toMap(row -> (Long) row[0], row -> (Long) row[1]));
+
+		assertThat(countMap.get(room1.getId())).isEqualTo(2L);
+		assertThat(countMap.get(room2.getId())).isEqualTo(1L);
 	}
 }
