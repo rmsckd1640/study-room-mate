@@ -4,7 +4,6 @@ import { useAuth, GRADE_CONFIG } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 import * as roomsApi from '../../lib/api/rooms'
 import * as wishlistsApi from '../../lib/api/wishlists'
-import * as reviewsApi from '../../lib/api/reviews'
 import * as reservationsApi from '../../lib/api/reservations'
 import { ApiError } from '../../lib/api/client'
 import type { RoomResponseDto } from '../../lib/api/types'
@@ -280,15 +279,15 @@ export default function AdminRoomsPage() {
       const list = page.content
       setRooms(list)
 
-      const [counts, summaries] = await Promise.all([
-        Promise.all(list.map((r) => wishlistsApi.countWishlistByRoom(r.id).catch(() => 0))),
-        Promise.all(list.map((r) => reviewsApi.getRatingSummary(r.id).catch(() => ({ averageRating: 0, reviewCount: 0 })))),
-      ])
+      // room 목록 응답(listRooms)에 이미 room별 wishlistCount/averageRating/reviewCount가
+      // 배치 쿼리로 채워져서 오기 때문에, room마다 별도 API를 호출할 필요가 없다.
+      // (예전에는 room 개수만큼 countWishlistByRoom/getRatingSummary를 개별 호출했는데,
+      //  이게 room 100개 기준 최대 200번의 불필요한 API 호출 + N+1성 쿼리를 유발했음)
       const nextCounts: Record<number, number> = {}
       const nextRatings: Record<number, { avg: number | null; count: number }> = {}
-      list.forEach((r, i) => {
-        nextCounts[r.id] = counts[i]
-        nextRatings[r.id] = summaries[i].reviewCount > 0 ? { avg: summaries[i].averageRating, count: summaries[i].reviewCount } : { avg: null, count: 0 }
+      list.forEach((r) => {
+        nextCounts[r.id] = r.wishlistCount
+        nextRatings[r.id] = r.reviewCount > 0 ? { avg: r.averageRating, count: r.reviewCount } : { avg: null, count: 0 }
       })
       setFavCounts(nextCounts)
       setRatings(nextRatings)
@@ -298,8 +297,10 @@ export default function AdminRoomsPage() {
           wishlistsApi.getWishlists(),
           reservationsApi.getMyReservations(),
         ])
+        // DELETE /api/wishlists/{roomId} 는 wishlist 자체의 id가 아니라 roomId를 받으므로,
+        // wishlist의 PK(w.id)가 아니라 roomId를 값으로 저장한다.
         const nextFavMap: Record<number, number> = {}
-        wishlist.forEach((w) => { nextFavMap[w.roomId] = w.id })
+        wishlist.forEach((w) => { nextFavMap[w.roomId] = w.roomId })
         setFavoriteMap(nextFavMap)
 
         const myRooms = new Set(myReservations.map((r) => r.roomId))
@@ -327,15 +328,16 @@ export default function AdminRoomsPage() {
   })
 
   const toggleFavorite = async (room: Room) => {
-    const existingId = favoriteMap[room.id]
+    const isFavorited = favoriteMap[room.id] !== undefined
     try {
-      if (existingId !== undefined) {
-        await wishlistsApi.removeWishlist(existingId)
+      if (isFavorited) {
+        // DELETE /api/wishlists/{roomId} - roomId를 그대로 넘긴다 (wishlist 자체 id 아님)
+        await wishlistsApi.removeWishlist(room.id)
         setFavoriteMap((m) => { const next = { ...m }; delete next[room.id]; return next })
         setFavCounts((c) => ({ ...c, [room.id]: Math.max(0, (c[room.id] ?? 1) - 1) }))
       } else {
-        const created = await wishlistsApi.addWishlist({ roomId: room.id })
-        setFavoriteMap((m) => ({ ...m, [room.id]: created.id }))
+        await wishlistsApi.addWishlist({ roomId: room.id })
+        setFavoriteMap((m) => ({ ...m, [room.id]: room.id }))
         setFavCounts((c) => ({ ...c, [room.id]: (c[room.id] ?? 0) + 1 }))
       }
     } catch {
