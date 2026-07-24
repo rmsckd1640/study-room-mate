@@ -46,9 +46,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        // 로컬 Vite 개발 서버 + GitHub Pages 배포본(로컬 백엔드를 호출하는 화면 검토용)
+        // 로컬 Vite 개발 서버(이 프로젝트는 vite.config.ts에서 기본 포트를 8443으로 지정)
+        // + GitHub Pages 배포본(로컬 백엔드를 호출하는 화면 검토용)
         config.setAllowedOrigins(List.of(
-                "http://localhost:5173",
+                "http://localhost:8443",
                 "https://rmsckd1640.github.io"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
