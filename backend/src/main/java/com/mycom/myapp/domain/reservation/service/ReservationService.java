@@ -13,10 +13,6 @@ public interface ReservationService {
 
 	ResultDto<ReservationResponse> cancel(Long reservationId, String reason);
 
-	ResultDto<List<ReservationResponse>> list();
-
-	ResultDto<List<ReservationResponse>> list(Long roomId);
-
 	ResultDto<List<ReservationResponse>> myList();
 
 	ResultDto<List<ReservationResponse>> myList(Long roomId);

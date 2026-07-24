@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -42,7 +44,7 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 	List<Reservation> findByStatusAndRoomId(ReservationStatus status, Long roomId);
 
 	// USER 1. WHERE room_Id == roomId and deleted_at == null
-	List<Reservation> findByRoomIdAndDeletedAtIsNull(Long roomId);
+	Page<Reservation> findByRoomIdAndDeletedAtIsNull(Long roomId, Pageable pageable);
 	
 	// USER 2. WHERE member.username == username and deleted_at == null
 	List<Reservation> findByMember_UsernameAndDeletedAtIsNull(String username);	

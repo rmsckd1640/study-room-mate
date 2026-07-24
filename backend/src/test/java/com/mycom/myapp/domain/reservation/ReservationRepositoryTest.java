@@ -15,6 +15,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import com.mycom.myapp.domain.member.entity.Member;
 import com.mycom.myapp.domain.member.repository.MemberRepository;
@@ -169,8 +172,9 @@ public class ReservationRepositoryTest {
 	            .build());
 		
 	    // CASE 1. 스터디룸 아이디로 find
-	    List<Reservation> lists1 = reservationRepository.findByRoomIdAndDeletedAtIsNull(room.getId());
-	    log.info("[STEP 1] : DATA : {}", lists1);
+	    Pageable pageable = PageRequest.of(0, 10);
+	    Page<Reservation> lists1 = reservationRepository.findByRoomIdAndDeletedAtIsNull(room.getId(), pageable);
+	    log.info("[STEP 1] : DATA : {}", lists1.getContent());
 	    assertFalse(lists1.isEmpty());
 	    assertTrue(lists1.stream().allMatch(r -> r.getRoom().getId().equals(room.getId())));
 

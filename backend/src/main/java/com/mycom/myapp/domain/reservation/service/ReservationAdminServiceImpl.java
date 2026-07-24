@@ -1,10 +1,14 @@
 package com.mycom.myapp.domain.reservation.service;
 
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.mycom.myapp.domain.member.entity.Member;
@@ -17,8 +21,9 @@ import com.mycom.myapp.domain.reservation.entity.Reservation;
 import com.mycom.myapp.domain.reservation.repository.ReservationRepository;
 import com.mycom.myapp.global.common.dto.ResultDto;
 import com.mycom.myapp.global.common.enums.ReservationStatus;
+import com.mycom.myapp.global.exception.ReservationNotFoundException;
 
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -37,7 +42,7 @@ public class ReservationAdminServiceImpl implements ReservationAdminService {
 		ResultDto<ReservationResponse> resultDto = new ResultDto<>();
 
 		Reservation reservation = reservationRepository.findById(reservationId)
-				.orElseThrow(() -> new IllegalStateException("예약을 찾을 수 없습니다."));
+				.orElseThrow(() -> new ReservationNotFoundException("예약을 찾을 수 없습니다."));
 		
 		if (reservation.getStatus() != ReservationStatus.PAYMENT_DONE) {
 			throw new IllegalStateException("결제 완료만 예약 확정 가능");
@@ -85,10 +90,66 @@ public class ReservationAdminServiceImpl implements ReservationAdminService {
         } catch (Exception e) {
         	log.error("[결제 정합성 경고] Toss 환불은 성공했으나 로컬 반영에 실패했습니다 - reservationId: {}, paymentKey: {}. 수동 확인이 필요합니다.",
         			reservationId, payment.getPaymentKey(), e);
+        	markPaymentFailed(payment.getId(), "Toss 환불(예약 거절) 성공 후 로컬 반영 실패: " + e.getMessage());
         	throw e;
         }
 
 		return resultDto;
+	}
+
+	// 위 catch에서 로그만 남기면 "Toss 환불은 됐는데 로컬은 그대로"인 사실이 DB 어디에도 남지 않아
+	// 관리자가 admin 목록에서 확인할 방법이 없다. 그래서 별도 트랜잭션으로 결제 건에 FAILED 이력을 남긴다.
+	// payment는 롤백된 트랜잭션에서 꺼내온 인스턴스라 필드가 오염돼 있을 수 있으므로 id로 새로 조회한다.
+	private void markPaymentFailed(Long paymentId, String reason) {
+		try {
+			new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+				Payment freshPayment = paymentRepository.findById(paymentId)
+						.orElseThrow(() -> new IllegalStateException("결제 정보를 찾을 수 없습니다."));
+				freshPayment.fail(reason);
+				paymentRepository.save(freshPayment);
+			});
+		} catch (Exception e) {
+			log.error("[결제 정합성 경고] paymentId={} 실패 이력 저장마저 실패했습니다. 수동 확인이 필요합니다.", paymentId, e);
+		}
+	}
+
+	@Transactional(readOnly = true)
+	public Page<ReservationResponse> list(Pageable pageable) {
+		Page<Reservation> reservations = reservationRepository.findAll(pageable);
+
+		return attachPaymentInfo(reservations);
+	}
+
+	@Transactional(readOnly = true)
+	public Page<ReservationResponse> list(Long roomId, Pageable pageable) {
+		Page<Reservation> reservations = reservationRepository.findByRoomIdAndDeletedAtIsNull(roomId, pageable);
+
+		return attachPaymentInfo(reservations);
+	}
+
+	// 토스 결제 승인 후 로컬 저장 실패로 남은 FAILED 이력을 admin 예약 목록에서 함께 조회할 수 있도록
+	// 페이지에 담긴 예약들의 결제 정보를 한 번에 조회해 응답에 채워 넣는다(N+1 방지).
+	private Page<ReservationResponse> attachPaymentInfo(Page<Reservation> reservations) {
+		List<Long> reservationIds = reservations.getContent()
+													.stream()
+													.map(Reservation::getId)
+													.toList();
+
+		Map<Long, Payment> paymentByReservationId = paymentRepository.findByReservation_IdIn(reservationIds)
+																		.stream()
+																		.collect(Collectors.toMap(
+																				payment -> payment.getReservation().getId(),
+																				Function.identity()
+																		));
+
+		return reservations.map(reservation -> {
+			ReservationResponse response = reservation.toResponse();
+			Payment payment = paymentByReservationId.get(reservation.getId());
+
+			return payment != null
+					? response.withPaymentStatus(payment.getStatus()).withPaymentFailureReason(payment.getFailureReason())
+					: response;
+		});
 	}
 
 	private void validateTossCancelResponse(TossPaymentResponse response, Long expectedAmount) {
