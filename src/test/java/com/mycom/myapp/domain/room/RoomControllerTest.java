@@ -7,7 +7,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -83,15 +82,25 @@ class RoomControllerTest {
 		SecurityContextHolder.clearContext();
 	}
 
+	// 조회 응답용 헬퍼 - 찜/평점 정보까지 채워진 RoomResponseDto
+	private RoomResponseDto fullResponse(Long id, String name, Integer capacity, Integer price, Integer discountedPrice) {
+		return new RoomResponseDto(id, name, capacity, price, discountedPrice, true, 5L, 4.5, 10L, null);
+	}
+
+	// 생성/수정 응답용 헬퍼 - 찜/평점 정보가 기본값인 RoomResponseDto
+	private RoomResponseDto plainResponse(Long id, String name, Integer capacity, Integer price) {
+		return new RoomResponseDto(id, name, capacity, price, null, false, 0L, 0.0, 0L, null);
+	}
+
 	@Test
-	@DisplayName("room을 조회하면 200과 할인가가 적용된 데이터를 반환한다")
+	@DisplayName("room을 조회하면 200과 찜/평점 정보가 포함된 데이터를 반환한다")
 	void getRoom_성공() throws Exception {
 		// given
-		RoomResponseDto response = new RoomResponseDto(1L, "한강뷰 스튜디오", 4, 150000, 127500, null);
+		RoomResponseDto response = fullResponse(1L, "한강뷰 스튜디오", 4, 150000, 127500);
 		given(roomService.getRoom("user1", 1L)).willReturn(response);
 
 		// when & then
-		mockMvc.perform(get("/api/rooms/{id}", 1L).with(withAuth("user1", "ROLE_USER"))).andExpect(status().isOk()).andExpect(jsonPath("$.data.discountedPrice").value(127500));
+		mockMvc.perform(get("/api/rooms/{id}", 1L).with(withAuth("user1", "ROLE_USER"))).andExpect(status().isOk()).andExpect(jsonPath("$.data.discountedPrice").value(127500)).andExpect(jsonPath("$.data.wishlisted").value(true)).andExpect(jsonPath("$.data.wishlistCount").value(5)).andExpect(jsonPath("$.data.averageRating").value(4.5)).andExpect(jsonPath("$.data.reviewCount").value(10));
 	}
 
 	@Test
@@ -105,49 +114,49 @@ class RoomControllerTest {
 	}
 
 	@Test
-	@DisplayName("room 목록을 페이징 조회하면 할인가가 적용된 데이터를 반환한다")
+	@DisplayName("room 목록을 페이징 조회하면 찜/평점 정보가 포함된 데이터를 반환한다")
 	void getRooms_성공() throws Exception {
 		// given
-		RoomResponseDto response = new RoomResponseDto(1L, "한강뷰 스튜디오", 4, 150000, 127500, null);
+		RoomResponseDto response = fullResponse(1L, "한강뷰 스튜디오", 4, 150000, 127500);
 		Page<RoomResponseDto> page = new PageImpl<>(List.of(response));
 		given(roomService.getRooms(eq("user1"), any())).willReturn(page);
 
 		// when & then
-		mockMvc.perform(get("/api/rooms").with(withAuth("user1", "ROLE_USER"))).andExpect(status().isOk()).andExpect(jsonPath("$.data.content[0].discountedPrice").value(127500));
+		mockMvc.perform(get("/api/rooms").with(withAuth("user1", "ROLE_USER"))).andExpect(status().isOk()).andExpect(jsonPath("$.data.content[0].wishlistCount").value(5)).andExpect(jsonPath("$.data.content[0].reviewCount").value(10));
 	}
 
 	@Test
-	@DisplayName("조건으로 room을 검색하면 할인가가 적용된 데이터를 반환한다")
+	@DisplayName("조건으로 room을 검색하면 찜/평점 정보가 포함된 데이터를 반환한다")
 	void search_성공() throws Exception {
 		// given
-		RoomResponseDto response = new RoomResponseDto(1L, "한강뷰 스튜디오", 4, 150000, 127500, null);
+		RoomResponseDto response = fullResponse(1L, "한강뷰 스튜디오", 4, 150000, 127500);
 		given(roomService.search("user1", "한강뷰", 4, 200000)).willReturn(List.of(response));
 
 		// when & then
-		mockMvc.perform(get("/api/rooms/search").param("name", "한강뷰").param("capacity", "4").param("price", "200000").with(withAuth("user1", "ROLE_USER"))).andDo(print()).andExpect(status().isOk()).andExpect(jsonPath("$.data[0].discountedPrice").value(127500));
+		mockMvc.perform(get("/api/rooms/search").param("name", "한강뷰").param("capacity", "4").param("price", "200000").with(withAuth("user1", "ROLE_USER"))).andExpect(status().isOk()).andExpect(jsonPath("$.data[0].averageRating").value(4.5));
 	}
 
 	@Test
 	@DisplayName("조건 없이 검색해도 정상 동작한다")
 	void search_조건없음_성공() throws Exception {
 		// given
-		RoomResponseDto response = new RoomResponseDto(1L, "한강뷰 스튜디오", 4, 150000, 127500, null);
+		RoomResponseDto response = fullResponse(1L, "한강뷰 스튜디오", 4, 150000, 127500);
 		given(roomService.search("user1", null, null, null)).willReturn(List.of(response));
 
 		// when & then
-		mockMvc.perform(get("/api/rooms/search").with(withAuth("user1", "ROLE_USER"))).andDo(print()).andExpect(status().isOk()).andExpect(jsonPath("$.data[0].name").value("한강뷰 스튜디오"));
+		mockMvc.perform(get("/api/rooms/search").with(withAuth("user1", "ROLE_USER"))).andExpect(status().isOk()).andExpect(jsonPath("$.data[0].name").value("한강뷰 스튜디오"));
 	}
 
 	@Test
-	@DisplayName("조건으로 room을 페이징 검색하면 할인가가 적용된 데이터를 반환한다")
+	@DisplayName("조건으로 room을 페이징 검색하면 찜/평점 정보가 포함된 데이터를 반환한다")
 	void searchWithPaging_성공() throws Exception {
 		// given
-		RoomResponseDto response = new RoomResponseDto(1L, "한강뷰 스튜디오", 4, 150000, 127500, null);
+		RoomResponseDto response = fullResponse(1L, "한강뷰 스튜디오", 4, 150000, 127500);
 		Page<RoomResponseDto> page = new PageImpl<>(List.of(response));
 		given(roomService.searchWithPaging(eq("user1"), eq("한강뷰"), eq(4), eq(200000), any())).willReturn(page);
 
 		// when & then
-		mockMvc.perform(get("/api/rooms/search/page").param("name", "한강뷰").param("capacity", "4").param("price", "200000").with(withAuth("user1", "ROLE_USER"))).andDo(print()).andExpect(status().isOk()).andExpect(jsonPath("$.data.content[0].discountedPrice").value(127500));
+		mockMvc.perform(get("/api/rooms/search/page").param("name", "한강뷰").param("capacity", "4").param("price", "200000").with(withAuth("user1", "ROLE_USER"))).andExpect(status().isOk()).andExpect(jsonPath("$.data.content[0].wishlisted").value(true));
 	}
 
 	@Test
@@ -155,11 +164,11 @@ class RoomControllerTest {
 	void create_성공_ADMIN() throws Exception {
 		// given
 		RoomCreateRequest request = new RoomCreateRequest("한강뷰 스튜디오", 4, 150000);
-		RoomResponseDto response = new RoomResponseDto(1L, "한강뷰 스튜디오", 4, 150000, null, null);
+		RoomResponseDto response = plainResponse(1L, "한강뷰 스튜디오", 4, 150000);
 		given(roomService.createRoom(any(RoomCreateRequest.class))).willReturn(response);
 
 		// when & then
-		mockMvc.perform(post("/api/rooms").with(withAuth("admin1", "ROLE_ADMIN")).contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(request))).andExpect(status().isCreated()).andExpect(jsonPath("$.data.name").value("한강뷰 스튜디오"));
+		mockMvc.perform(post("/api/rooms").with(withAuth("admin1", "ROLE_ADMIN")).contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(request))).andExpect(status().isCreated()).andExpect(jsonPath("$.data.name").value("한강뷰 스튜디오")).andExpect(jsonPath("$.data.wishlistCount").value(0));
 	}
 
 	@Test
@@ -193,7 +202,7 @@ class RoomControllerTest {
 	void update_성공_ADMIN() throws Exception {
 		// given
 		RoomUpdateRequest request = new RoomUpdateRequest("새 이름", 6, 200000);
-		RoomResponseDto response = new RoomResponseDto(1L, "새 이름", 6, 200000, null, null);
+		RoomResponseDto response = plainResponse(1L, "새 이름", 6, 200000);
 		given(roomService.updateRoom(eq(1L), any(RoomUpdateRequest.class))).willReturn(response);
 
 		// when & then
