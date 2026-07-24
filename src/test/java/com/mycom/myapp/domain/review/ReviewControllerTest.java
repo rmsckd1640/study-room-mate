@@ -7,7 +7,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -36,25 +35,30 @@ import com.mycom.myapp.domain.review.dto.ReviewCreateRequest;
 import com.mycom.myapp.domain.review.dto.ReviewResponseDto;
 import com.mycom.myapp.domain.review.dto.ReviewUpdateRequest;
 import com.mycom.myapp.domain.review.dto.RoomRatingSummaryDto;
+import com.mycom.myapp.domain.review.service.ReviewService;
+import com.mycom.myapp.global.common.util.SecurityUtils;
 import com.mycom.myapp.global.exception.DuplicateReviewException;
 import com.mycom.myapp.global.exception.ReviewAccessDeniedException;
 import com.mycom.myapp.global.exception.ReviewNotAllowedException;
 import com.mycom.myapp.global.jwt.JwtProvider;
 
 @WebMvcTest(ReviewController.class)
-@AutoConfigureMockMvc(addFilters = false) // JwtAuthFilter를 비활성화하고, 대신 아래에서 인증 정보를 직접 주입
+@AutoConfigureMockMvc(addFilters = false)
 class ReviewControllerTest {
 
 	@Autowired
 	private MockMvc mockMvc;
 
-	private final ObjectMapper objectMapper = new ObjectMapper(); // @Autowired 대신 직접 생성
+	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@MockitoBean
-	private com.mycom.myapp.domain.review.service.ReviewService reviewService;
+	private ReviewService reviewService;
 
 	@MockitoBean
 	private JwtProvider jwtProvider;
+
+	@MockitoBean
+	private SecurityUtils securityUtils; // 추가
 
 	private RequestPostProcessor withAuth(String username) {
 		return request -> {
@@ -70,22 +74,10 @@ class ReviewControllerTest {
 	}
 
 	@Test
-	@DisplayName("본인이 작성한 리뷰를 수정하면 200을 반환한다")
-	void update_성공() throws Exception {
-		// given
-		ReviewUpdateRequest request = new ReviewUpdateRequest(4, "다시 보니 좋아요");
-		ReviewResponseDto response = new ReviewResponseDto(1L, 10L, 5L, 4, "다시 보니 좋아요", null);
-		//		given(reviewService.updateReview(eq("user1"), eq(1L), any(ReviewUpdateRequest.class))).willReturn(response);
-		given(reviewService.updateReview(any(), any(), any())).willReturn(response);
-
-		// when & then
-		mockMvc.perform(patch("/api/reviews/{id}", 1L).with(withAuth("user1")).contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(request))).andDo(print()).andExpect(status().isOk()).andExpect(jsonPath("$.data.rating").value(4));
-	}
-
-	@Test
 	@DisplayName("리뷰를 생성하면 201과 데이터를 반환한다")
 	void create_성공() throws Exception {
 		// given
+		given(securityUtils.getCurrentUsername()).willReturn("user1");
 		ReviewCreateRequest request = new ReviewCreateRequest(5L, 5, "최고예요");
 		ReviewResponseDto response = new ReviewResponseDto(1L, 10L, 5L, 5, "최고예요", null);
 		given(reviewService.createReview(eq("user1"), any(ReviewCreateRequest.class))).willReturn(response);
@@ -97,7 +89,8 @@ class ReviewControllerTest {
 	@Test
 	@DisplayName("평점이 범위를 벗어나면 400을 반환한다")
 	void create_실패_검증오류() throws Exception {
-		// given - rating이 6점(범위 초과)인 잘못된 요청
+		// given
+		given(securityUtils.getCurrentUsername()).willReturn("user1");
 		String invalidJson = """
 				{ "roomId": 5, "rating": 6, "content": "최고예요" }
 				""";
@@ -110,6 +103,7 @@ class ReviewControllerTest {
 	@DisplayName("확정된 예약이 없으면 403을 반환한다")
 	void create_실패_예약없음() throws Exception {
 		// given
+		given(securityUtils.getCurrentUsername()).willReturn("user1");
 		ReviewCreateRequest request = new ReviewCreateRequest(5L, 5, "최고예요");
 		given(reviewService.createReview(eq("user1"), any(ReviewCreateRequest.class))).willThrow(new ReviewNotAllowedException("확정된 예약이 있어야 리뷰를 작성할 수 있습니다."));
 
@@ -121,6 +115,7 @@ class ReviewControllerTest {
 	@DisplayName("이미 리뷰를 작성했으면 409를 반환한다")
 	void create_실패_중복리뷰() throws Exception {
 		// given
+		given(securityUtils.getCurrentUsername()).willReturn("user1");
 		ReviewCreateRequest request = new ReviewCreateRequest(5L, 5, "최고예요");
 		given(reviewService.createReview(eq("user1"), any(ReviewCreateRequest.class))).willThrow(new DuplicateReviewException("이미 이 방에 대한 리뷰를 작성했습니다."));
 
@@ -129,9 +124,23 @@ class ReviewControllerTest {
 	}
 
 	@Test
+	@DisplayName("본인이 작성한 리뷰를 수정하면 200을 반환한다")
+	void update_성공() throws Exception {
+		// given
+		given(securityUtils.getCurrentUsername()).willReturn("user1");
+		ReviewUpdateRequest request = new ReviewUpdateRequest(4, "다시 보니 좋아요");
+		ReviewResponseDto response = new ReviewResponseDto(1L, 10L, 5L, 4, "다시 보니 좋아요", null);
+		given(reviewService.updateReview(eq("user1"), eq(1L), any(ReviewUpdateRequest.class))).willReturn(response);
+
+		// when & then
+		mockMvc.perform(patch("/api/reviews/{id}", 1L).with(withAuth("user1")).contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(request))).andExpect(status().isOk()).andExpect(jsonPath("$.data.rating").value(4));
+	}
+
+	@Test
 	@DisplayName("본인이 작성하지 않은 리뷰를 수정하면 403을 반환한다")
 	void update_실패_권한없음() throws Exception {
 		// given
+		given(securityUtils.getCurrentUsername()).willReturn("user2");
 		ReviewUpdateRequest request = new ReviewUpdateRequest(4, "다시 보니 좋아요");
 		given(reviewService.updateReview(eq("user2"), eq(1L), any(ReviewUpdateRequest.class))).willThrow(new ReviewAccessDeniedException("본인이 작성한 리뷰만 수정/삭제할 수 있습니다."));
 
@@ -142,6 +151,9 @@ class ReviewControllerTest {
 	@Test
 	@DisplayName("본인이 작성한 리뷰를 삭제하면 200을 반환한다")
 	void delete_성공() throws Exception {
+		// given
+		given(securityUtils.getCurrentUsername()).willReturn("user1");
+
 		// when & then
 		mockMvc.perform(delete("/api/reviews/{id}", 1L).with(withAuth("user1"))).andExpect(status().isOk()).andExpect(jsonPath("$.message").value("리뷰 삭제 성공"));
 	}
