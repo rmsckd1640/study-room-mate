@@ -144,6 +144,7 @@ export interface WishlistCreateRequest {
 
 /* ── Reservation ── */
 export type ReservationStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'PAYMENT_DONE' | 'REJECTED'
+export type PaymentStatus = 'READY' | 'DONE' | 'CANCELED' | 'FAILED'
 
 export interface ReservationResponse {
   id: number
@@ -153,6 +154,9 @@ export interface ReservationResponse {
   startTime: string
   endTime: string
   status: ReservationStatus
+  // ADMIN 목록 조회 시에만 채워짐 - 토스 결제 승인/환불 후 로컬 저장 실패로 인한 FAILED 이력
+  paymentStatus?: PaymentStatus
+  paymentFailureReason?: string
 }
 
 export interface ReservationInsertRequest {

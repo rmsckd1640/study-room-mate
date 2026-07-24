@@ -95,6 +95,7 @@ sourceSets {
 
 tasks.withType(JavaCompile).configureEach {
     options.generatedSourceOutputDirectory = file(generatedDir)
+    options.compilerArgs << '-parameters'
 }
 
 clean {

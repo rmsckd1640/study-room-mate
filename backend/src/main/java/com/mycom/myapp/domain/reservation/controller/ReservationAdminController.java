@@ -56,7 +56,7 @@ public class ReservationAdminController {
 	@PostMapping("/{id}/confirm")
 	public ResponseEntity<ResultDto<ReservationResponse>> confirm(
 	        @PathVariable("id") Long reservationId,
-	        @RequestParam ReservationStatus status) {
+	        @RequestParam("status") ReservationStatus status) {
 	    return ResponseEntity.ok(reservationAdminService.confirm(reservationId, status));
 	}
 
@@ -65,7 +65,7 @@ public class ReservationAdminController {
 	@PostMapping("/{id}/reject")
 	public ResponseEntity<ResultDto<ReservationResponse>> reject(
 	        @PathVariable("id") Long reservationId,
-	        @RequestParam(required = false) String reason) {
+	        @RequestParam(value = "reason", required = false) String reason) {
 	    return ResponseEntity.ok(reservationAdminService.reject(reservationId, reason));
 	}
 

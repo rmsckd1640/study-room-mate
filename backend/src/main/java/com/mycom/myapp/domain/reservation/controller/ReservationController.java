@@ -82,7 +82,7 @@ public class ReservationController {
 	
 	@Operation(description = "USER : 예약 취소")
 	@PostMapping("/{id}/cancel")
-	public ResponseEntity<ResultDto<ReservationResponse>> cancle(@PathVariable("id") Long reservationId, String reason) {
+	public ResponseEntity<ResultDto<ReservationResponse>> cancle(@PathVariable("id") Long reservationId, @RequestParam(value = "reason", required = false) String reason) {
 	    return ResponseEntity.ok(reservationService.cancel(reservationId, reason));
 	}
 	
