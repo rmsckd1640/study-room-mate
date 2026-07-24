@@ -13,6 +13,8 @@ import DashboardPage from './pages/admin/DashboardPage'
 import ReservationManagePage from './pages/admin/ReservationManagePage'
 import ReservePage from './pages/user/ReservePage'
 import PaymentPage from './pages/user/PaymentPage'
+import PaymentSuccessPage from './pages/user/PaymentSuccessPage'
+import PaymentFailPage from './pages/user/PaymentFailPage'
 import RoomDetailPage from './pages/user/RoomDetailPage'
 import WishlistPage from './pages/user/WishlistPage'
 import ReservationHistoryPage from './pages/user/ReservationHistoryPage'
@@ -41,6 +43,15 @@ export const router = createHashRouter([
   {
     path: '/reset-password',
     Component: ResetPasswordPage,
+  },
+  // ── Toss 결제 리다이렉트 (독립 페이지, UserLayout 밖) ──
+  {
+    path: '/user/payment/success',
+    Component: PaymentSuccessPage,
+  },
+  {
+    path: '/user/payment/fail',
+    Component: PaymentFailPage,
   },
   // ── 일반 사용자 도메인 ──────────────────────────────
   {

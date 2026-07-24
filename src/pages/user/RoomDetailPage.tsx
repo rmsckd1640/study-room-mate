@@ -1,42 +1,79 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router'
-import { useAuth, GRADE_CONFIG } from '../../context/AuthContext'
-import { ROOMS } from '../admin/AdminRoomsPage'
-import { TimeSlotRow, CancelSaleCountdown } from '../admin/AdminRoomsPage'
+import { useAuth } from '../../context/AuthContext'
+import { useToast } from '../../context/ToastContext'
+import * as roomsApi from '../../lib/api/rooms'
+import * as reviewsApi from '../../lib/api/reviews'
+import * as wishlistsApi from '../../lib/api/wishlists'
+import * as reservationsApi from '../../lib/api/reservations'
+import type { ReviewResponseDto, RoomResponseDto } from '../../lib/api/types'
 import { StarRating } from '../../components/rooms/StarRating'
-import { Badge } from '../../components/ui/Badge'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { EmptyState } from '../../components/ui/EmptyState'
 
 export default function RoomDetailPage() {
   const { roomId } = useParams()
   const navigate   = useNavigate()
-  const { grade, favorites, toggleFavorite, reviews, reservations, isAdmin } = useAuth()
+  const { isAdmin } = useAuth()
+  const { showToast } = useToast()
 
-  const [loading, setLoading] = useState(true)
+  const id = Number(roomId)
+  const [loading, setLoading]   = useState(true)
+  const [room, setRoom]         = useState<RoomResponseDto | null>(null)
+  const [reviews, setReviews]   = useState<ReviewResponseDto[]>([])
+  const [favId, setFavId]       = useState<number | null>(null)
+  const [favCount, setFavCount] = useState(0)
+  const [hasConfirmed, setHasConfirmed] = useState(false)
 
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 300)
-    return () => clearTimeout(t)
-  }, [])
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [roomData, reviewPage, count] = await Promise.all([
+        roomsApi.getRoom(id),
+        reviewsApi.getReviewsByRoom(id, 0, 3),
+        wishlistsApi.countWishlistByRoom(id),
+      ])
+      setRoom(roomData)
+      setReviews(reviewPage.content)
+      setFavCount(count)
 
-  const id   = Number(roomId)
-  const room = ROOMS.find((r) => r.id === id)
+      if (!isAdmin) {
+        const [wishlist, myReservations] = await Promise.all([
+          wishlistsApi.getWishlists(),
+          reservationsApi.getMyReservations(),
+        ])
+        const mine = wishlist.find((w) => w.roomId === id)
+        setFavId(mine ? mine.id : null)
+        setHasConfirmed(myReservations.some((r) => r.roomId === id && (r.status === 'CONFIRMED' || r.status === 'PAYMENT_DONE')))
+      }
+    } catch {
+      setRoom(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [id, isAdmin])
 
-  const now         = new Date()
-  const currentHour = now.getHours()
-  const displayHour = currentHour >= 9 && currentHour <= 20 ? currentHour : null
+  useEffect(() => { load() }, [load])
 
-  const discount      = (!isAdmin && grade) ? GRADE_CONFIG[grade].discount : 0
-  const discountedPrice = discount > 0 ? Math.round((room?.price ?? 0) * (1 - discount)) : null
+  const toggleFavorite = async () => {
+    try {
+      if (favId !== null) {
+        await wishlistsApi.removeWishlist(favId)
+        setFavId(null)
+        setFavCount((c) => Math.max(0, c - 1))
+      } else {
+        const created = await wishlistsApi.addWishlist({ roomId: id })
+        setFavId(created.id)
+        setFavCount((c) => c + 1)
+      }
+    } catch {
+      showToast('즐겨찾기 처리에 실패했습니다.', 'error')
+    }
+  }
 
-  const isFav      = favorites.includes(id)
-  const roomReviews = reviews.filter((r) => r.roomId === id)
-  const avgRating  = roomReviews.length ? roomReviews.reduce((a, b) => a + b.rating, 0) / roomReviews.length : null
-
-  const favCount = room ? room.baseFavCount + (isFav ? 1 : 0) : 0
-
-  const hasConfirmed = reservations.some((r) => r.roomId === id && (r.status === 'confirmed' || r.status === 'payment_done'))
+  const discountedPrice = room && room.discountedPrice < room.price ? room.discountedPrice : null
+  const discount = room && room.price > 0 ? 1 - room.discountedPrice / room.price : 0
+  const avgRating = reviews.length ? reviews.reduce((a, b) => a + b.rating, 0) / reviews.length : null
 
   if (loading) {
     return (
@@ -77,47 +114,36 @@ export default function RoomDetailPage() {
                 {room.id}
               </div>
               <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-xl font-bold text-gray-900">{room.name}</h1>
-                  {room.cancelSalePrice && (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: '#fef2f2', color: '#dc2626' }}>취소특가</span>
-                  )}
-                </div>
+                <h1 className="text-xl font-bold text-gray-900">{room.name}</h1>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <span className="text-xs text-gray-500">최대 {room.capacity}명</span>
-                  <span className="text-gray-200">·</span>
-                  <Badge variant="roomStatus" value={room.status} />
                 </div>
               </div>
             </div>
             {/* 위시리스트 */}
-            <div className="flex flex-col items-center gap-0.5 shrink-0">
-              <button onClick={() => toggleFavorite(id)} className="p-2 rounded-xl hover:bg-gray-50 transition-all hover:scale-110">
-                <svg width="22" height="22" viewBox="0 0 24 24"
-                  fill={isFav ? '#f59e0b' : 'none'} stroke={isFav ? '#f59e0b' : '#cbd5e1'} strokeWidth="2" strokeLinecap="round">
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                </svg>
-              </button>
-              <span className="text-[10px] font-semibold tabular-nums" style={{ color: isFav ? '#b45309' : '#94a3b8' }}>{favCount}</span>
-            </div>
+            {!isAdmin && (
+              <div className="flex flex-col items-center gap-0.5 shrink-0">
+                <button onClick={toggleFavorite} className="p-2 rounded-xl hover:bg-gray-50 transition-all hover:scale-110">
+                  <svg width="22" height="22" viewBox="0 0 24 24"
+                    fill={favId !== null ? '#f59e0b' : 'none'} stroke={favId !== null ? '#f59e0b' : '#cbd5e1'} strokeWidth="2" strokeLinecap="round">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                  </svg>
+                </button>
+                <span className="text-[10px] font-semibold tabular-nums" style={{ color: favId !== null ? '#b45309' : '#94a3b8' }}>{favCount}</span>
+              </div>
+            )}
           </div>
 
           {/* 가격 */}
           <div className="mt-4 pt-4 flex items-end justify-between" style={{ borderTop: '1px solid #f1f5f9' }}>
             <div>
-              {discountedPrice ? (
+              {discountedPrice !== null ? (
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-2xl font-bold text-gray-900">{discountedPrice.toLocaleString()}원</span>
                     <span className="text-[11px] font-bold px-1.5 py-0.5 rounded" style={{ background: '#fee2e2', color: '#dc2626' }}>-{Math.round(discount * 100)}%</span>
                   </div>
                   <span className="text-sm text-gray-400 line-through">{room.price.toLocaleString()}원/시간</span>
-                </div>
-              ) : room.cancelSalePrice ? (
-                <div>
-                  <span className="text-2xl font-bold" style={{ color: '#dc2626' }}>{room.cancelSalePrice.toLocaleString()}원</span>
-                  <span className="ml-2 text-sm text-gray-400 line-through">{room.price.toLocaleString()}원</span>
-                  <div className="mt-0.5"><CancelSaleCountdown roomId={room.id} /></div>
                 </div>
               ) : (
                 <span className="text-2xl font-bold text-gray-900">{room.price.toLocaleString()}원<span className="text-sm font-normal text-gray-400">/시간</span></span>
@@ -126,16 +152,10 @@ export default function RoomDetailPage() {
             {avgRating !== null && (
               <div className="text-right">
                 <StarRating value={Math.round(avgRating)} size={14} />
-                <div className="text-xs text-gray-400 mt-0.5">{avgRating.toFixed(1)} ({roomReviews.length}개 리뷰)</div>
+                <div className="text-xs text-gray-400 mt-0.5">{avgRating.toFixed(1)} ({reviews.length}개 리뷰)</div>
               </div>
             )}
           </div>
-        </div>
-
-        {/* 시간대 현황 */}
-        <div className="rounded-2xl p-5 mb-4" style={{ background: '#fff', border: '1px solid #e8edf5' }}>
-          <h2 className="text-sm font-bold text-gray-700 mb-3">오늘 예약 현황</h2>
-          <TimeSlotRow room={room} currentHour={displayHour} />
         </div>
 
         {/* 리뷰 */}
@@ -147,15 +167,15 @@ export default function RoomDetailPage() {
               전체 보기 →
             </button>
           </div>
-          {roomReviews.length === 0 ? (
+          {reviews.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-6">아직 리뷰가 없습니다.</p>
           ) : (
             <div className="flex flex-col gap-3">
-              {roomReviews.slice(0, 3).map((rv) => (
+              {reviews.slice(0, 3).map((rv) => (
                 <div key={rv.id} className="rounded-xl p-4" style={{ background: '#f8fafc' }}>
                   <div className="flex items-center justify-between mb-1.5">
                     <StarRating value={rv.rating} size={12} />
-                    <span className="text-xs text-gray-400">{rv.date}</span>
+                    <span className="text-xs text-gray-400">{rv.createdAt.slice(0, 10)}</span>
                   </div>
                   <p className="text-sm text-gray-700 leading-relaxed">{rv.content}</p>
                 </div>
@@ -165,22 +185,23 @@ export default function RoomDetailPage() {
         </div>
 
         {/* CTA */}
-        <div className="flex gap-3">
-          {hasConfirmed && (
-            <button onClick={() => navigate(`/user/rooms/${id}/reviews`)}
-              className="flex-none px-5 py-3.5 rounded-2xl text-sm font-semibold transition-all"
-              style={{ background: '#f8fafc', color: '#64748b', border: '1.5px solid #e2e8f0' }}>
-              리뷰 작성
+        {!isAdmin && (
+          <div className="flex gap-3">
+            {hasConfirmed && (
+              <button onClick={() => navigate(`/user/rooms/${id}/reviews`)}
+                className="flex-none px-5 py-3.5 rounded-2xl text-sm font-semibold transition-all"
+                style={{ background: '#f8fafc', color: '#64748b', border: '1.5px solid #e2e8f0' }}>
+                리뷰 작성
+              </button>
+            )}
+            <button
+              onClick={() => navigate(`/user/rooms/${id}/reserve`)}
+              className="flex-1 py-3.5 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90"
+              style={{ background: 'linear-gradient(135deg, #1e3a5f, #2d5a9e)', boxShadow: '0 4px 14px rgba(30,58,95,0.3)' }}>
+              예약하기
             </button>
-          )}
-          <button
-            disabled={room.status === 'reserved'}
-            onClick={() => navigate(`/user/rooms/${id}/reserve`)}
-            className="flex-1 py-3.5 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-40"
-            style={{ background: 'linear-gradient(135deg, #1e3a5f, #2d5a9e)', boxShadow: room.status !== 'reserved' ? '0 4px 14px rgba(30,58,95,0.3)' : 'none' }}>
-            {room.status === 'reserved' ? '현재 예약 불가' : '예약하기'}
-          </button>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   )

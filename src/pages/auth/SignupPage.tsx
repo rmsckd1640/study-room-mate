@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
+import { signup } from '../../lib/api/auth'
+import { ApiError } from '../../lib/api/client'
 
 const EyeIcon = ({ open }: { open: boolean }) =>
   open ? (
@@ -50,14 +52,23 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [focused, setFocused] = useState<string | null>(null)
+  const [error, setError] = useState('')
 
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }))
   const ic = (f: string) => (focused === f ? '#2d5a9e' : '#9ca3af')
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
     setIsLoading(true)
-    setTimeout(() => setIsLoading(false), 1800)
+    try {
+      await signup(form)
+      navigate('/login')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '회원가입에 실패했습니다. 입력값을 확인해주세요.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -79,6 +90,13 @@ export default function SignupPage() {
             <button onClick={() => navigate('/login')} className="font-semibold" style={{ color: '#2d5a9e' }}>로그인</button>
           </p>
         </div>
+
+        {error && (
+          <div className="mb-2 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2" style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Field

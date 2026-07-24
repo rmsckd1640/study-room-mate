@@ -1,54 +1,89 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router'
 import { useAuth } from '../../context/AuthContext'
-import { ROOMS } from './AdminRoomsPage'
 import { StarRating as StarDisplay, StarPicker } from '../../components/rooms/StarRating'
 import { useToast } from '../../context/ToastContext'
+import * as roomsApi from '../../lib/api/rooms'
+import * as reviewsApi from '../../lib/api/reviews'
+import * as reservationsApi from '../../lib/api/reservations'
+import { ApiError } from '../../lib/api/client'
+import type { ReviewResponseDto, RoomResponseDto } from '../../lib/api/types'
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 
 export default function RoomReviewsPage() {
   const { roomId } = useParams()
   const navigate = useNavigate()
-  const { reviews, reservations, addReview, isAdmin } = useAuth()
+  const { isAdmin, memberId } = useAuth()
   const { showToast } = useToast()
   const backPath = isAdmin ? '/admin/rooms' : '/user/rooms'
 
   const id = Number(roomId)
-  const room = ROOMS.find((r) => r.id === id)
-  const roomReviews = reviews.filter((r) => r.roomId === id)
-  const avg = roomReviews.length
-    ? roomReviews.reduce((a, b) => a + b.rating, 0) / roomReviews.length
-    : null
+  const [room, setRoom] = useState<RoomResponseDto | null>(null)
+  const [reviews, setReviews] = useState<ReviewResponseDto[]>([])
+  const [loading, setLoading] = useState(true)
+  const [canWrite, setCanWrite] = useState(false)
 
-  const hasConfirmedReservation = !isAdmin &&
-    reservations.some((r) => r.roomId === id && r.status === 'confirmed')
-  const alreadyReviewed = reviews.some((r) => r.roomId === id)
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [roomData, reviewPage] = await Promise.all([
+        roomsApi.getRoom(id),
+        reviewsApi.getReviewsByRoom(id, 0, 100),
+      ])
+      setRoom(roomData)
+      setReviews(reviewPage.content)
+
+      if (!isAdmin && memberId !== null) {
+        const myReservations = await reservationsApi.getMyReservations()
+        const hasConfirmed = myReservations.some((r) => r.roomId === id && (r.status === 'CONFIRMED' || r.status === 'PAYMENT_DONE'))
+        const alreadyReviewed = reviewPage.content.some((r) => r.memberId === memberId)
+        setCanWrite(hasConfirmed && !alreadyReviewed)
+      }
+    } catch {
+      setRoom(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [id, isAdmin, memberId])
+
+  useEffect(() => { load() }, [load])
+
+  const avg = reviews.length ? reviews.reduce((a, b) => a + b.rating, 0) / reviews.length : null
 
   const [showForm, setShowForm] = useState(false)
   const [rating, setRating] = useState(5)
   const [content, setContent] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  if (loading) {
+    return <div className="flex-1 flex items-center justify-center"><LoadingSpinner size="lg" /></div>
+  }
+
   if (!room) return (
     <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">방을 찾을 수 없습니다.</div>
   )
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!content.trim()) return
     setSubmitting(true)
-    setTimeout(() => {
-      addReview({ roomId: id, roomName: room.name, rating, content: content.trim() })
+    try {
+      await reviewsApi.createReview({ roomId: id, rating, content: content.trim() })
       setContent('')
       setRating(5)
       setShowForm(false)
-      setSubmitting(false)
       showToast('리뷰가 등록되었습니다.', 'success')
-    }, 600)
+      await load()
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : '리뷰 등록에 실패했습니다.', 'error')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const ratingDist = [5, 4, 3, 2, 1].map((star) => ({
     star,
-    count: roomReviews.filter((r) => r.rating === star).length,
+    count: reviews.filter((r) => r.rating === star).length,
   }))
 
   return (
@@ -77,13 +112,13 @@ export default function RoomReviewsPage() {
               <div className="text-center">
                 <div className="text-4xl font-bold" style={{ color: '#f59e0b', letterSpacing: '-0.03em' }}>{avg.toFixed(1)}</div>
                 <StarDisplay value={Math.round(avg)} />
-                <div className="text-xs text-gray-400 mt-1">{roomReviews.length}개 리뷰</div>
+                <div className="text-xs text-gray-400 mt-1">{reviews.length}개 리뷰</div>
               </div>
             )}
           </div>
 
           {/* Rating distribution */}
-          {roomReviews.length > 0 && (
+          {reviews.length > 0 && (
             <div className="mt-5 flex flex-col gap-1.5">
               {ratingDist.map(({ star, count }) => (
                 <div key={star} className="flex items-center gap-2">
@@ -92,7 +127,7 @@ export default function RoomReviewsPage() {
                   <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: '#f1f5f9' }}>
                     <div
                       className="h-full rounded-full transition-all"
-                      style={{ width: roomReviews.length ? `${(count / roomReviews.length) * 100}%` : '0%', background: '#f59e0b' }}
+                      style={{ width: reviews.length ? `${(count / reviews.length) * 100}%` : '0%', background: '#f59e0b' }}
                     />
                   </div>
                   <span className="text-xs text-gray-400 w-4 text-right">{count}</span>
@@ -103,7 +138,7 @@ export default function RoomReviewsPage() {
         </div>
 
         {/* Write review button */}
-        {hasConfirmedReservation && !alreadyReviewed && !showForm && (
+        {canWrite && !showForm && (
           <button
             onClick={() => setShowForm(true)}
             className="w-full py-3 rounded-xl text-sm font-semibold mb-6 flex items-center justify-center gap-2 transition-all hover:opacity-90"
@@ -151,17 +186,17 @@ export default function RoomReviewsPage() {
         )}
 
         {/* Reviews list */}
-        {roomReviews.length === 0 ? (
+        {reviews.length === 0 ? (
           <div className="text-center py-16 text-sm text-gray-400 rounded-2xl" style={{ background: '#f8fafc', border: '1px solid #e8edf5' }}>
             아직 작성된 리뷰가 없습니다.
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {roomReviews.map((review) => (
+            {reviews.map((review) => (
               <div key={review.id} className="rounded-2xl p-5" style={{ background: '#ffffff', border: '1px solid #e8edf5', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
                 <div className="flex items-start justify-between mb-2">
                   <StarDisplay value={review.rating} />
-                  <span className="text-xs text-gray-400">{review.date}</span>
+                  <span className="text-xs text-gray-400">{review.createdAt.slice(0, 10)}</span>
                 </div>
                 <p className="text-sm text-gray-700 leading-relaxed">{review.content}</p>
               </div>

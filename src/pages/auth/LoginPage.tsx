@@ -58,28 +58,16 @@ const LeftPanel = () => (
         </div>
       </div>
 
-      {/* Test accounts */}
+      {/* 안내 */}
       <div className="mt-6 rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.12)' }}>
         <div className="px-4 py-2.5 flex items-center gap-2" style={{ background: 'rgba(255,255,255,0.08)' }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#93c5fd" strokeWidth="2" strokeLinecap="round">
             <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
-          <span className="text-xs font-semibold" style={{ color: '#93c5fd' }}>테스트 계정</span>
+          <span className="text-xs font-semibold" style={{ color: '#93c5fd' }}>안내</span>
         </div>
-        <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
-          {[
-            { role: '일반 사용자', username: 'user01', password: 'test1234' },
-            { role: '관리자', username: 'admin', password: 'admin1234' },
-          ].map((acc) => (
-            <div key={acc.role} className="px-4 py-3 flex items-center justify-between" style={{ background: 'rgba(0,0,0,0.1)' }}>
-              <span className="text-xs font-medium" style={{ color: '#bfdbfe' }}>{acc.role}</span>
-              <div className="flex items-center gap-3 font-mono text-xs" style={{ color: '#93b4d6' }}>
-                <span>{acc.username}</span>
-                <span style={{ color: 'rgba(255,255,255,0.2)' }}>·</span>
-                <span>{acc.password}</span>
-              </div>
-            </div>
-          ))}
+        <div className="px-4 py-3 text-xs leading-relaxed" style={{ background: 'rgba(0,0,0,0.1)', color: '#93b4d6' }}>
+          계정이 없다면 먼저 회원가입을 진행해주세요. 관리자 권한은 서버에 등록된 계정 기준으로 부여됩니다.
         </div>
       </div>
     </div>
@@ -97,28 +85,19 @@ export default function LoginPage() {
 
   const ic = (f: string) => (focused === f ? '#2d5a9e' : '#9ca3af')
 
-  const TEST_ACCOUNTS = [
-    { username: 'user01', password: 'test1234', role: 'user' },
-    { username: 'admin', password: 'admin1234', role: 'admin' },
-  ]
   const [error, setError] = useState('')
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setIsLoading(true)
-    setTimeout(() => {
-      const match = TEST_ACCOUNTS.find(
-        (a) => a.username === username && a.password === password
-      )
-      if (match) {
-        login(username, match.role as 'user' | 'admin')
-        navigate(match.role === 'admin' ? '/admin/dashboard' : '/user/rooms')
-      } else {
-        setError('아이디 또는 비밀번호가 올바르지 않습니다.')
-        setIsLoading(false)
-      }
-    }, 800)
+    try {
+      const role = await login(username, password)
+      navigate(role === 'admin' ? '/admin/dashboard' : '/user/rooms')
+    } catch {
+      setError('아이디 또는 비밀번호가 올바르지 않습니다.')
+      setIsLoading(false)
+    }
   }
 
   return (

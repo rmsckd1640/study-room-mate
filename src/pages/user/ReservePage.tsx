@@ -1,7 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router'
-import { useAuth, GRADE_CONFIG } from '../../context/AuthContext'
-import { ROOMS } from '../admin/AdminRoomsPage'
+import { useAuth } from '../../context/AuthContext'
+import { useToast } from '../../context/ToastContext'
+import * as roomsApi from '../../lib/api/rooms'
+import * as reservationsApi from '../../lib/api/reservations'
+import { ApiError } from '../../lib/api/client'
+import type { RoomResponseDto } from '../../lib/api/types'
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 
 /* ─── 달력 ────────────────────────────────────────────────── */
 function CalendarPicker({ selected, onSelect }: { selected: string; onSelect: (d: string) => void }) {
@@ -74,28 +79,41 @@ const SLOT_HOURS = Array.from({ length: 12 }, (_, i) => i + 9) // 9~20
 export default function ReservePage() {
   const { roomId } = useParams()
   const navigate   = useNavigate()
-  const { grade, reservations } = useAuth()
+  const { name, email } = useAuth()
+  const { showToast } = useToast()
 
-  const id   = Number(roomId)
-  const room = ROOMS.find((r) => r.id === id)
+  const id = Number(roomId)
+  const [room, setRoom] = useState<RoomResponseDto | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
 
   const [step, setStep]               = useState<1 | 2>(1)
   const [date, setDate]               = useState('')
   const [selectedHours, setSelectedHours] = useState<Set<number>>(new Set())
 
+  const loadRoom = useCallback(async () => {
+    setLoading(true)
+    try {
+      setRoom(await roomsApi.getRoom(id))
+    } catch {
+      setRoom(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [id])
+
+  useEffect(() => { loadRoom() }, [loadRoom])
+
+  if (loading) {
+    return <div className="flex-1 flex items-center justify-center"><LoadingSpinner size="lg" /></div>
+  }
+
   if (!room) return (
     <div className="flex-1 flex items-center justify-center text-sm text-gray-400">방을 찾을 수 없습니다.</div>
   )
 
-  const discount = grade ? GRADE_CONFIG[grade].discount : 0
-  const takenHours = new Set(
-    reservations
-      .filter((r) => r.roomId === id && r.date === date && (r.status === 'confirmed' || r.status === 'pending'))
-      .flatMap((r) => Array.from({ length: r.endHour - r.startHour }, (_, i) => r.startHour + i))
-  )
-
+  const discount    = room.price > 0 ? 1 - room.discountedPrice / room.price : 0
   const toggleSlot = (h: number) => {
-    if (takenHours.has(h)) return
     setSelectedHours((prev) => {
       const next = new Set(prev)
       next.has(h) ? next.delete(h) : next.add(h)
@@ -106,26 +124,42 @@ export default function ReservePage() {
   const sortedHours = [...selectedHours].sort((a, b) => a - b)
   const totalHours  = selectedHours.size
   const basePrice   = totalHours * room.price
-  const finalPrice  = Math.round(basePrice * (1 - discount))
+  const finalPrice  = totalHours * room.discountedPrice
   const canNext     = date !== '' && selectedHours.size > 0
 
-  const handleToPayment = () => {
+  const handleToPayment = async () => {
     const startHour = Math.min(...sortedHours)
     const endHour   = Math.max(...sortedHours) + 1
-    navigate(`/user/rooms/${id}/payment`, {
-      state: {
-        roomId: id,
-        roomName: room.name,
-        date,
-        startHour,
-        endHour,
-        selectedHours: sortedHours,
-        price: finalPrice,
-        basePrice,
-        discount,
-        grade,
-      },
-    })
+    const pad = (n: number) => String(n).padStart(2, '0')
+    setSubmitting(true)
+    try {
+      const reservation = await reservationsApi.insertReservation(id, {
+        reservationDate: date,
+        startTime: `${date}T${pad(startHour)}:00:00`,
+        endTime: `${date}T${pad(endHour)}:00:00`,
+        amount: finalPrice,
+      })
+      navigate(`/user/rooms/${id}/payment`, {
+        state: {
+          roomId: id,
+          roomName: room.name,
+          date,
+          startHour,
+          endHour,
+          selectedHours: sortedHours,
+          price: finalPrice,
+          basePrice,
+          discount,
+          orderId: reservation.orderId,
+          reservationId: reservation.id,
+          customerName: name,
+          customerEmail: email,
+        },
+      })
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : '예약 생성에 실패했습니다. 다른 시간대를 선택해주세요.', 'error')
+      setSubmitting(false)
+    }
   }
 
   const slotLabel = (h: number) => `${h}:00~${h + 1}:00`
@@ -151,7 +185,7 @@ export default function ReservePage() {
             <div className="font-bold text-gray-900">{room.name}</div>
             <div className="text-sm text-gray-500">최대 {room.capacity}명 · {room.price.toLocaleString()}원/시간</div>
           </div>
-          {grade && discount > 0 && (
+          {discount > 0 && (
             <div className="text-right shrink-0">
               <div className="text-xs text-gray-400">등급 할인</div>
               <div className="text-sm font-bold" style={{ color: '#16a34a' }}>-{Math.round(discount * 100)}%</div>
@@ -205,16 +239,14 @@ export default function ReservePage() {
                     </p>
                     <div className="grid grid-cols-3 gap-1.5">
                       {SLOT_HOURS.map((h) => {
-                        const taken  = takenHours.has(h)
-                        const sel    = selectedHours.has(h)
+                        const sel = selectedHours.has(h)
                         return (
-                          <button key={h} disabled={taken} onClick={() => toggleSlot(h)}
+                          <button key={h} onClick={() => toggleSlot(h)}
                             className="py-2 px-1 rounded-xl text-xs font-semibold transition-all"
                             style={{
-                              background: taken ? '#f1f5f9' : sel ? 'linear-gradient(135deg, #1e3a5f, #2d5a9e)' : '#f8fafc',
-                              color: taken ? '#d1d5db' : sel ? '#fff' : '#374151',
-                              border: taken ? '1.5px solid #e5e7eb' : sel ? '1.5px solid #1e3a5f' : '1.5px solid #e2e8f0',
-                              cursor: taken ? 'not-allowed' : 'pointer',
+                              background: sel ? 'linear-gradient(135deg, #1e3a5f, #2d5a9e)' : '#f8fafc',
+                              color: sel ? '#fff' : '#374151',
+                              border: sel ? '1.5px solid #1e3a5f' : '1.5px solid #e2e8f0',
                             }}>
                             {slotLabel(h)}
                           </button>
@@ -226,7 +258,6 @@ export default function ReservePage() {
                       {[
                         { bg: '#f8fafc', border: '#e2e8f0', label: '선택 가능' },
                         { bg: 'linear-gradient(135deg, #1e3a5f, #2d5a9e)', border: '#1e3a5f', label: '선택됨' },
-                        { bg: '#f1f5f9', border: '#e5e7eb', label: '예약 불가' },
                       ].map((x) => (
                         <div key={x.label} className="flex items-center gap-1.5">
                           <div className="w-3 h-3 rounded" style={{ background: x.bg, border: `1px solid ${x.border}` }} />
@@ -234,6 +265,7 @@ export default function ReservePage() {
                         </div>
                       ))}
                     </div>
+                    <p className="text-[11px] text-gray-400 mt-3">이미 예약된 시간대는 예약 확정 시 서버에서 자동으로 거부됩니다.</p>
                   </div>
                 )}
               </div>
@@ -308,10 +340,10 @@ export default function ReservePage() {
               <button onClick={() => setStep(1)} className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-100 transition-all">
                 ← 이전
               </button>
-              <button onClick={handleToPayment}
-                className="px-7 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
+              <button onClick={handleToPayment} disabled={submitting}
+                className="px-7 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
                 style={{ background: 'linear-gradient(135deg, #1e3a5f, #2d5a9e)', boxShadow: '0 4px 14px rgba(30,58,95,0.3)' }}>
-                결제하기 →
+                {submitting ? '예약 생성 중...' : '결제하기 →'}
               </button>
             </div>
           </div>

@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
+import { confirmPasswordReset } from '../../lib/api/auth'
+import { ApiError } from '../../lib/api/client'
 
 const EyeIcon = ({ open }: { open: boolean }) =>
   open ? (
@@ -39,6 +41,9 @@ function StrengthBar({ password }: { password: string }) {
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const tokenFromUrl = searchParams.get('token') ?? ''
+  const [token, setToken]           = useState(tokenFromUrl)
   const [password, setPassword]     = useState('')
   const [confirm, setConfirm]       = useState('')
   const [showPw, setShowPw]         = useState(false)
@@ -47,16 +52,25 @@ export default function ResetPasswordPage() {
   const [focusedCf, setFocusedCf]   = useState(false)
   const [loading, setLoading]       = useState(false)
   const [done, setDone]             = useState(false)
+  const [error, setError]           = useState('')
 
   const mismatch  = confirm.length > 0 && password !== confirm
   const tooShort  = password.length > 0 && password.length < 8
-  const canSubmit = password.length >= 8 && password === confirm
+  const canSubmit = password.length >= 8 && password === confirm && token.trim().length > 0
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!canSubmit) return
+    setError('')
     setLoading(true)
-    setTimeout(() => { setLoading(false); setDone(true) }, 900)
+    try {
+      await confirmPasswordReset({ token: token.trim(), newPassword: password })
+      setDone(true)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '비밀번호 재설정에 실패했습니다. 토큰을 확인해주세요.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (done) return (
@@ -113,7 +127,25 @@ export default function ResetPasswordPage() {
             <p className="text-sm text-gray-500">새로운 비밀번호를 입력해 주세요.</p>
           </div>
 
+          {error && (
+            <div className="mb-4 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2" style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+              {error}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+
+            {/* 재설정 토큰 (이메일 링크로 열었다면 자동 입력됨) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">재설정 토큰</label>
+              <input
+                type="text" placeholder="이메일로 받은 토큰을 붙여넣으세요" value={token}
+                onChange={(e) => setToken(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl text-sm text-gray-900 placeholder-gray-400 outline-none transition-all"
+                style={{ background: '#fff', border: '1.5px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
+              />
+            </div>
 
             {/* 새 비밀번호 */}
             <div>

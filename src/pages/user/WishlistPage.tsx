@@ -1,22 +1,67 @@
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router'
-import { useAuth, GRADE_CONFIG } from '../../context/AuthContext'
-import { ROOMS } from '../admin/AdminRoomsPage'
+import { useToast } from '../../context/ToastContext'
+import * as wishlistsApi from '../../lib/api/wishlists'
+import * as roomsApi from '../../lib/api/rooms'
+import * as reviewsApi from '../../lib/api/reviews'
+import type { RoomResponseDto } from '../../lib/api/types'
 import { StarRating } from '../../components/rooms/StarRating'
 import { EmptyState } from '../../components/ui/EmptyState'
-import { Badge } from '../../components/ui/Badge'
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
+
+interface WishlistRoom {
+  wishlistId: number
+  room: RoomResponseDto
+  avg: number | null
+  reviewCount: number
+}
 
 export default function WishlistPage() {
   const navigate = useNavigate()
-  const { favorites, toggleFavorite, grade, reviews } = useAuth()
+  const { showToast } = useToast()
 
-  const wishRooms = ROOMS.filter((r) => favorites.includes(r.id))
+  const [loading, setLoading] = useState(true)
+  const [items, setItems] = useState<WishlistRoom[]>([])
 
-  const discount = grade ? GRADE_CONFIG[grade].discount : 0
-  const discountedPrice = (price: number) => discount > 0 ? Math.round(price * (1 - discount)) : null
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const wishlist = await wishlistsApi.getWishlists()
+      const resolved = await Promise.all(
+        wishlist.map(async (w) => {
+          const [room, summary] = await Promise.all([
+            roomsApi.getRoom(w.roomId),
+            reviewsApi.getRatingSummary(w.roomId).catch(() => ({ averageRating: 0, reviewCount: 0 })),
+          ])
+          return {
+            wishlistId: w.id,
+            room,
+            avg: summary.reviewCount > 0 ? summary.averageRating : null,
+            reviewCount: summary.reviewCount,
+          }
+        }),
+      )
+      setItems(resolved)
+    } catch {
+      showToast('위시리스트를 불러오지 못했습니다.', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }, [showToast])
 
-  const avgRating = (roomId: number) => {
-    const rs = reviews.filter((r) => r.roomId === roomId)
-    return rs.length ? rs.reduce((a, b) => a + b.rating, 0) / rs.length : null
+  useEffect(() => { load() }, [load])
+
+  const removeFavorite = async (wishlistId: number) => {
+    try {
+      await wishlistsApi.removeWishlist(wishlistId)
+      setItems((prev) => prev.filter((it) => it.wishlistId !== wishlistId))
+    } catch {
+      showToast('제거에 실패했습니다.', 'error')
+    }
+  }
+
+  if (loading) {
+    return <div className="flex-1 flex items-center justify-center"><LoadingSpinner size="lg" /></div>
   }
 
   return (
@@ -25,11 +70,11 @@ export default function WishlistPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900" style={{ letterSpacing: '-0.02em' }}>위시리스트</h1>
-            <p className="text-sm text-gray-500 mt-1">찜한 룸 {wishRooms.length}개</p>
+            <p className="text-sm text-gray-500 mt-1">찜한 룸 {items.length}개</p>
           </div>
         </div>
 
-        {wishRooms.length === 0 ? (
+        {items.length === 0 ? (
           <EmptyState
             icon={
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round">
@@ -42,12 +87,10 @@ export default function WishlistPage() {
           />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {wishRooms.map((room) => {
-              const dp  = discountedPrice(room.price)
-              const avg = avgRating(room.id)
-              const reviewCount = reviews.filter((r) => r.roomId === room.id).length
+            {items.map(({ wishlistId, room, avg, reviewCount }) => {
+              const dp = room.discountedPrice < room.price ? room.discountedPrice : null
               return (
-                <div key={room.id} className="rounded-2xl overflow-hidden flex flex-col"
+                <div key={wishlistId} className="rounded-2xl overflow-hidden flex flex-col"
                   style={{ background: '#fff', border: '1.5px solid #e8edf5', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
 
                   {/* 상단 */}
@@ -64,7 +107,7 @@ export default function WishlistPage() {
                       </div>
                     </div>
                     {/* 찜 제거 */}
-                    <button onClick={() => toggleFavorite(room.id)}
+                    <button onClick={() => removeFavorite(wishlistId)}
                       className="p-1.5 rounded-lg hover:bg-red-50 transition-colors shrink-0" title="위시리스트에서 제거">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="#f59e0b" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round">
                         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
@@ -72,25 +115,19 @@ export default function WishlistPage() {
                     </button>
                   </div>
 
-                  {/* 가격 + 상태 */}
-                  <div className="px-4 pb-3 flex items-center justify-between">
-                    <div>
-                      {dp ? (
-                        <div>
-                          <span className="text-base font-bold text-gray-900">{dp.toLocaleString()}원</span>
-                          <span className="ml-1.5 text-xs text-gray-400 line-through">{room.price.toLocaleString()}원</span>
-                          <span className="ml-1 text-[10px] font-bold px-1 py-0.5 rounded" style={{ background: '#fee2e2', color: '#dc2626' }}>-{Math.round(discount * 100)}%</span>
-                        </div>
-                      ) : room.cancelSalePrice ? (
-                        <div>
-                          <span className="text-base font-bold" style={{ color: '#dc2626' }}>{room.cancelSalePrice.toLocaleString()}원</span>
-                          <span className="ml-1.5 text-xs text-gray-400 line-through">{room.price.toLocaleString()}원</span>
-                        </div>
-                      ) : (
-                        <span className="text-base font-semibold text-gray-900">{room.price.toLocaleString()}원</span>
-                      )}
-                    </div>
-                    <Badge variant="roomStatus" value={room.status} />
+                  {/* 가격 */}
+                  <div className="px-4 pb-3">
+                    {dp !== null ? (
+                      <div>
+                        <span className="text-base font-bold text-gray-900">{dp.toLocaleString()}원</span>
+                        <span className="ml-1.5 text-xs text-gray-400 line-through">{room.price.toLocaleString()}원</span>
+                        <span className="ml-1 text-[10px] font-bold px-1 py-0.5 rounded" style={{ background: '#fee2e2', color: '#dc2626' }}>
+                          -{Math.round((1 - dp / room.price) * 100)}%
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-base font-semibold text-gray-900">{room.price.toLocaleString()}원</span>
+                    )}
                   </div>
 
                   {/* 평점 */}
@@ -109,8 +146,7 @@ export default function WishlistPage() {
                       상세보기
                     </button>
                     <button onClick={() => navigate(`/user/rooms/${room.id}/reserve`)}
-                      disabled={room.status === 'reserved'}
-                      className="flex-1 py-2 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
+                      className="flex-1 py-2 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90"
                       style={{ background: 'linear-gradient(135deg, #1e3a5f, #2d5a9e)' }}>
                       예약하기
                     </button>

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
-
-const MOCK_EMAILS = ['user01@example.com', 'admin@studyroom.kr']
+import { requestPasswordReset } from '../../lib/api/auth'
+import { ApiError } from '../../lib/api/client'
 
 type Step = 'input' | 'sent'
 
@@ -13,16 +13,18 @@ export default function FindPasswordPage() {
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    const valid = MOCK_EMAILS.includes(email.trim())
-    if (!valid) {
-      setError('해당 이메일로 가입된 계정을 찾을 수 없습니다.')
-      return
-    }
     setLoading(true)
-    setTimeout(() => { setLoading(false); setStep('sent') }, 900)
+    try {
+      await requestPasswordReset({ email: email.trim() })
+      setStep('sent')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '해당 이메일로 가입된 계정을 찾을 수 없습니다.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const ic = focused ? '#2d5a9e' : '#9ca3af'
@@ -113,14 +115,14 @@ export default function FindPasswordPage() {
                 이메일이 도착하지 않았다면 스팸함을 확인하거나 잠시 후 다시 시도해 주세요. 링크는 <b>30분</b>간 유효합니다.
               </div>
 
-              {/* 시뮬레이션용: 재설정 링크 역할 버튼 */}
+              {/* 이메일로 받은 링크를 열면 /reset-password?token=... 으로 이동합니다. 토큰을 못 받았다면 아래에서 직접 이동해 수동으로 입력할 수 있습니다. */}
               <button onClick={() => navigate('/reset-password')}
                 className="w-full py-3.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 mb-3 flex items-center justify-center gap-2"
                 style={{ background: 'linear-gradient(135deg, #1e3a5f, #2d5a9e)', boxShadow: '0 4px 14px rgba(30,58,95,0.25)' }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                   <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
                 </svg>
-                재설정 링크 열기 (시뮬레이션)
+                재설정 페이지로 이동
               </button>
 
               <button onClick={() => { setStep('input'); setEmail(''); setError('') }}

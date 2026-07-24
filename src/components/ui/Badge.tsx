@@ -1,4 +1,5 @@
-import { GRADE_CONFIG, type Grade, type ReservationStatus } from '../../context/AuthContext'
+import { GRADE_CONFIG, type Grade } from '../../context/AuthContext'
+import type { ReservationStatus } from '../../lib/reservationStatus'
 
 /* ── 예약 상태 설정 ── */
 const RESERVATION_STATUS_CFG: Record<ReservationStatus, { label: string; color: string; bg: string; dot: string }> = {

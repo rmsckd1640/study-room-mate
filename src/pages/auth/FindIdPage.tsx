@@ -1,10 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
-
-const MOCK_ACCOUNTS = [
-  { name: '홍길동', email: 'user01@example.com', username: 'user01' },
-  { name: '관리자', email: 'admin@studyroom.kr',  username: 'admin' },
-]
+import { findUsername } from '../../lib/api/auth'
 
 export default function FindIdPage() {
   const navigate = useNavigate()
@@ -15,17 +11,18 @@ export default function FindIdPage() {
   const [loading, setLoading]     = useState(false)
   const [result, setResult]       = useState<string | null>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setTimeout(() => {
-      const match = MOCK_ACCOUNTS.find(
-        (a) => a.name === name.trim() && a.email === email.trim()
-      )
-      setResult(match ? match.username : null)
+    try {
+      const username = await findUsername({ name: name.trim(), email: email.trim() })
+      setResult(username || null)
+    } catch {
+      setResult(null)
+    } finally {
       setSubmitted(true)
       setLoading(false)
-    }, 700)
+    }
   }
 
   const ic = (f: string) => focusedField === f ? '#2d5a9e' : '#9ca3af'

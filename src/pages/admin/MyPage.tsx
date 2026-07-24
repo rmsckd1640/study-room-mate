@@ -1,15 +1,36 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router'
 import { useAuth, GRADE_CONFIG } from '../../context/AuthContext'
 import { StarRating, StarPicker } from '../../components/rooms/StarRating'
 import { Badge } from '../../components/ui/Badge'
 import { useToast } from '../../context/ToastContext'
+import * as membersApi from '../../lib/api/members'
+import * as reviewsApi from '../../lib/api/reviews'
+import * as roomsApi from '../../lib/api/rooms'
+import { ApiError } from '../../lib/api/client'
+import type { ReviewResponseDto, RoomResponseDto } from '../../lib/api/types'
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 
 type Tab = 'profile' | 'reviews'
 
 /* 회원 탈퇴 확인 모달 */
-function DeleteAccountModal({ onConfirm, onClose }: { onConfirm: () => void; onClose: () => void }) {
+function DeleteAccountModal({ onConfirm, onClose }: { onConfirm: (password: string) => Promise<void>; onClose: () => void }) {
   const [input, setInput] = useState('')
+  const [password, setPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleConfirm = async () => {
+    setSubmitting(true)
+    setError('')
+    try {
+      await onConfirm(password)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '탈퇴 처리에 실패했습니다.')
+      setSubmitting(false)
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}
       onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -22,17 +43,24 @@ function DeleteAccountModal({ onConfirm, onClose }: { onConfirm: () => void; onC
             </svg>
           </div>
           <h3 className="text-base font-bold text-gray-900 text-center mb-1">정말 탈퇴하시겠습니까?</h3>
-          <p className="text-xs text-gray-500 text-center mb-5">탈퇴하면 모든 데이터가 삭제되며 복구할 수 없습니다.<br />확인을 위해 "탈퇴합니다"를 입력해주세요.</p>
+          <p className="text-xs text-gray-500 text-center mb-5">탈퇴하면 모든 데이터가 삭제되며 복구할 수 없습니다.<br />확인을 위해 "탈퇴합니다"와 비밀번호를 입력해주세요.</p>
+          {error && (
+            <div className="mb-3 px-3 py-2 rounded-xl text-xs font-medium" style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }}>{error}</div>
+          )}
           <input value={input} onChange={(e) => setInput(e.target.value)}
             placeholder="탈퇴합니다"
+            className="w-full px-4 py-2.5 rounded-xl text-sm text-gray-900 outline-none mb-2"
+            style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0' }} />
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+            placeholder="비밀번호"
             className="w-full px-4 py-2.5 rounded-xl text-sm text-gray-900 outline-none mb-4"
             style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0' }} />
           <div className="flex gap-2">
             <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-100 transition-all">취소</button>
-            <button disabled={input !== '탈퇴합니다'} onClick={onConfirm}
+            <button disabled={input !== '탈퇴합니다' || !password || submitting} onClick={handleConfirm}
               className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
               style={{ background: 'linear-gradient(135deg, #dc2626, #ef4444)' }}>
-              탈퇴 확정
+              {submitting ? '처리 중...' : '탈퇴 확정'}
             </button>
           </div>
         </div>
@@ -41,8 +69,13 @@ function DeleteAccountModal({ onConfirm, onClose }: { onConfirm: () => void; onC
   )
 }
 
+interface EnrichedReview {
+  review: ReviewResponseDto
+  roomName: string
+}
+
 export default function MyPage() {
-  const { username, name, email, grade, reviews, updateReview, deleteReview, updateProfile, deleteAccount } = useAuth()
+  const { username, name, email, grade, memberId, updateProfile, logout } = useAuth()
   const navigate    = useNavigate()
   const { showToast } = useToast()
 
@@ -51,29 +84,94 @@ export default function MyPage() {
   const [editEmail, setEditEmail] = useState(email)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
 
-  const [editingId, setEditingId]   = useState<number | null>(null)
-  const [editRating, setEditRating] = useState(5)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword]         = useState('')
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false)
+
+  const [reviews, setReviews] = useState<EnrichedReview[]>([])
+  const [reviewsLoading, setReviewsLoading] = useState(true)
+  const [editingId, setEditingId]     = useState<number | null>(null)
+  const [editRating, setEditRating]   = useState(5)
   const [editContent, setEditContent] = useState('')
 
-  const handleProfileSave = (e: React.FormEvent) => {
+  useEffect(() => { setEditName(name); setEditEmail(email) }, [name, email])
+
+  const loadReviews = useCallback(async () => {
+    if (memberId === null) return
+    setReviewsLoading(true)
+    try {
+      const list = await reviewsApi.getReviewsByMember(memberId)
+      const roomCache = new Map<number, RoomResponseDto>()
+      const uniqueRoomIds = [...new Set(list.map((r) => r.roomId))]
+      await Promise.all(uniqueRoomIds.map(async (roomId) => {
+        try { roomCache.set(roomId, await roomsApi.getRoom(roomId)) } catch { /* 삭제된 방 */ }
+      }))
+      setReviews(list.map((review) => ({ review, roomName: roomCache.get(review.roomId)?.name ?? `방 #${review.roomId}` })))
+    } catch {
+      showToast('리뷰 목록을 불러오지 못했습니다.', 'error')
+    } finally {
+      setReviewsLoading(false)
+    }
+  }, [memberId, showToast])
+
+  useEffect(() => { loadReviews() }, [loadReviews])
+
+  const handleProfileSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    updateProfile(editName, editEmail)
-    showToast('프로필이 저장되었습니다.', 'success')
+    try {
+      await updateProfile(editName, editEmail)
+      showToast('프로필이 저장되었습니다.', 'success')
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : '프로필 저장에 실패했습니다.', 'error')
+    }
+  }
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (memberId === null) return
+    setPasswordSubmitting(true)
+    try {
+      await membersApi.changePassword(memberId, { currentPassword, newPassword })
+      setCurrentPassword(''); setNewPassword('')
+      showToast('비밀번호가 변경되었습니다.', 'success')
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : '비밀번호 변경에 실패했습니다.', 'error')
+    } finally {
+      setPasswordSubmitting(false)
+    }
   }
 
   const startEdit = (id: number, rating: number, content: string) => {
     setEditingId(id); setEditRating(rating); setEditContent(content)
   }
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (editingId === null) return
-    updateReview(editingId, editRating, editContent)
-    setEditingId(null)
-    showToast('리뷰가 수정되었습니다.', 'success')
+    try {
+      await reviewsApi.updateReview(editingId, { rating: editRating, content: editContent })
+      setEditingId(null)
+      showToast('리뷰가 수정되었습니다.', 'success')
+      await loadReviews()
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : '리뷰 수정에 실패했습니다.', 'error')
+    }
   }
 
-  const handleDeleteAccount = () => {
-    deleteAccount()
+  const removeReview = async (id: number) => {
+    try {
+      await reviewsApi.deleteReview(id)
+      showToast('리뷰가 삭제되었습니다.', 'success')
+      await loadReviews()
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : '리뷰 삭제에 실패했습니다.', 'error')
+    }
+  }
+
+  const handleDeleteAccount = async (password: string) => {
+    if (memberId === null) return
+    await membersApi.withdraw(memberId, { password })
+    setShowDeleteModal(false)
+    await logout()
     navigate('/login')
   }
 
@@ -190,6 +288,30 @@ export default function MyPage() {
                     </form>
                   </div>
 
+                  {/* 비밀번호 변경 */}
+                  <div className="rounded-2xl p-5 md:p-6" style={{ background: '#fff', border: '1px solid #e8edf5', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                    <h2 className="text-base font-bold text-gray-900 mb-4">비밀번호 변경</h2>
+                    <form onSubmit={handlePasswordChange} className="flex flex-col gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">현재 비밀번호</label>
+                        <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)}
+                          className="w-full px-4 py-2.5 rounded-xl text-sm text-gray-900 outline-none transition-all"
+                          style={{ background: '#fff', border: '1.5px solid #e2e8f0' }} />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">새 비밀번호</label>
+                        <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+                          className="w-full px-4 py-2.5 rounded-xl text-sm text-gray-900 outline-none transition-all"
+                          style={{ background: '#fff', border: '1.5px solid #e2e8f0' }} />
+                      </div>
+                      <button type="submit" disabled={passwordSubmitting || !currentPassword || !newPassword}
+                        className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white self-start transition-all hover:opacity-90 disabled:opacity-40"
+                        style={{ background: 'linear-gradient(135deg, #1e3a5f, #2d5a9e)', boxShadow: '0 4px 12px rgba(30,58,95,0.25)' }}>
+                        {passwordSubmitting ? '변경 중...' : '비밀번호 변경'}
+                      </button>
+                    </form>
+                  </div>
+
                   {/* 회원 탈퇴 */}
                   <div className="rounded-2xl p-5" style={{ background: '#fff', border: '1.5px solid #fecaca' }}>
                     <h2 className="text-sm font-bold mb-1" style={{ color: '#b91c1c' }}>위험 구역</h2>
@@ -208,15 +330,17 @@ export default function MyPage() {
                   <div className="px-5 py-4" style={{ background: '#f8fafc', borderBottom: '1px solid #e8edf5' }}>
                     <h2 className="text-base font-bold text-gray-900">내 리뷰 ({reviews.length})</h2>
                   </div>
-                  {reviews.length === 0 ? (
+                  {reviewsLoading ? (
+                    <div className="py-16 bg-white"><LoadingSpinner size="md" /></div>
+                  ) : reviews.length === 0 ? (
                     <div className="text-center py-16 text-sm text-gray-400 bg-white">작성한 리뷰가 없습니다.</div>
                   ) : (
                     <div className="divide-y bg-white" style={{ borderColor: '#f1f5f9' }}>
-                      {reviews.map((rv) => (
+                      {reviews.map(({ review: rv, roomName }) => (
                         <div key={rv.id} className="px-5 py-4">
                           {editingId === rv.id ? (
                             <div>
-                              <div className="text-sm font-semibold text-gray-900 mb-3">{rv.roomName}</div>
+                              <div className="text-sm font-semibold text-gray-900 mb-3">{roomName}</div>
                               <div className="mb-3"><StarPicker value={editRating} onChange={setEditRating} /></div>
                               <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)}
                                 rows={3} className="w-full px-4 py-3 rounded-xl text-sm text-gray-900 outline-none resize-none mb-3"
@@ -230,11 +354,11 @@ export default function MyPage() {
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                  <span className="text-sm font-semibold text-gray-900">{rv.roomName}</span>
+                                  <span className="text-sm font-semibold text-gray-900">{roomName}</span>
                                   <StarRating value={rv.rating} size={12} />
                                 </div>
                                 <p className="text-sm text-gray-600 leading-relaxed">{rv.content}</p>
-                                <div className="text-xs text-gray-400 mt-1">{rv.date}</div>
+                                <div className="text-xs text-gray-400 mt-1">{rv.createdAt.slice(0, 10)}</div>
                               </div>
                               <div className="flex gap-1 ml-4 shrink-0">
                                 <button onClick={() => startEdit(rv.id, rv.rating, rv.content)} className="p-2 rounded-lg text-gray-400 hover:text-blue-700 hover:bg-blue-50 transition-all">
@@ -243,7 +367,7 @@ export default function MyPage() {
                                     <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
                                   </svg>
                                 </button>
-                                <button onClick={() => { deleteReview(rv.id); showToast('리뷰가 삭제되었습니다.', 'success') }}
+                                <button onClick={() => removeReview(rv.id)}
                                   className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all">
                                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                                     <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />

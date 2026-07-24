@@ -1,5 +1,11 @@
-import { useState } from 'react'
-import { useAuth, type ReservationStatus } from '../../context/AuthContext'
+import { useState, useEffect, useCallback } from 'react'
+import { useToast } from '../../context/ToastContext'
+import * as reservationsApi from '../../lib/api/reservations'
+import * as roomsApi from '../../lib/api/rooms'
+import { ApiError } from '../../lib/api/client'
+import type { ReservationResponse, RoomResponseDto } from '../../lib/api/types'
+import { toUiStatus, type ReservationStatus } from '../../lib/reservationStatus'
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 
 const STATUS_CFG: Record<ReservationStatus, { label: string; color: string; bg: string }> = {
   pending:      { label: '승인 대기', color: '#b45309', bg: '#fffbeb' },
@@ -10,17 +16,64 @@ const STATUS_CFG: Record<ReservationStatus, { label: string; color: string; bg: 
 }
 
 export default function ReservationManagePage() {
-  const { reservations, approveReservation, rejectReservation } = useAuth()
+  const { showToast } = useToast()
+  const [loading, setLoading] = useState(true)
+  const [reservations, setReservations] = useState<ReservationResponse[]>([])
+  const [rooms, setRooms] = useState<RoomResponseDto[]>([])
   const [filterStatus, setFilterStatus] = useState<ReservationStatus | 'all'>('all')
   const [searchRoom, setSearchRoom]     = useState('')
 
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [reservationList, roomPage] = await Promise.all([
+        reservationsApi.adminListReservations(),
+        roomsApi.listRooms(0, 100),
+      ])
+      setReservations(reservationList)
+      setRooms(roomPage.content)
+    } catch {
+      showToast('예약 목록을 불러오지 못했습니다.', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }, [showToast])
+
+  useEffect(() => { load() }, [load])
+
+  const roomName = (roomId: number) => rooms.find((r) => r.id === roomId)?.name ?? `방 #${roomId}`
+
   const filtered = reservations.filter((r) => {
-    if (filterStatus !== 'all' && r.status !== filterStatus) return false
-    if (searchRoom && !r.roomName.includes(searchRoom) && !r.userName.includes(searchRoom)) return false
+    if (filterStatus !== 'all' && toUiStatus(r.status) !== filterStatus) return false
+    if (searchRoom && !roomName(r.roomId).includes(searchRoom)) return false
     return true
   })
 
-  const pendingCount = reservations.filter((r) => r.status === 'pending').length
+  const pendingCount = reservations.filter((r) => r.status === 'PENDING').length
+
+  const handleApprove = async (id: number) => {
+    try {
+      await reservationsApi.adminConfirmReservation(id, 'CONFIRMED')
+      showToast('예약이 승인되었습니다.', 'success')
+      await load()
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : '승인에 실패했습니다.', 'error')
+    }
+  }
+
+  const handleReject = async (id: number) => {
+    try {
+      await reservationsApi.adminRejectReservation(id)
+      showToast('예약이 거절되었습니다.', 'success')
+      await load()
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : '거절에 실패했습니다.', 'error')
+    }
+  }
+
+  if (loading) {
+    return <div className="flex-1 flex items-center justify-center"><LoadingSpinner size="lg" /></div>
+  }
 
   return (
     <div className="flex-1 overflow-auto">
@@ -48,7 +101,7 @@ export default function ReservationManagePage() {
                 <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
               </svg>
             </div>
-            <input type="text" placeholder="방 이름 / 신청자" value={searchRoom} onChange={(e) => setSearchRoom(e.target.value)}
+            <input type="text" placeholder="방 이름" value={searchRoom} onChange={(e) => setSearchRoom(e.target.value)}
               className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm text-gray-900 placeholder-gray-400 outline-none"
               style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0' }} />
           </div>
@@ -78,41 +131,39 @@ export default function ReservationManagePage() {
             <table className="w-full">
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e8edf5' }}>
-                  {['예약 ID', '방', '신청자', '날짜', '시간', '금액', '상태', '관리'].map((h) => (
+                  {['예약 ID', '방', '날짜', '시간', '상태', '관리'].map((h) => (
                     <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={8} className="text-center py-16 text-sm text-gray-400">예약 내역이 없습니다</td></tr>
+                  <tr><td colSpan={6} className="text-center py-16 text-sm text-gray-400">예약 내역이 없습니다</td></tr>
                 ) : (
                   filtered.map((r, i) => {
-                    const s = STATUS_CFG[r.status]
+                    const s = STATUS_CFG[toUiStatus(r.status)]
                     return (
                       <tr key={r.id} className="hover:bg-gray-50 transition-colors"
-                        style={{ borderBottom: i < filtered.length - 1 ? '1px solid #f1f5f9' : 'none', background: r.status === 'pending' ? '#fffcf0' : '#fff' }}>
+                        style={{ borderBottom: i < filtered.length - 1 ? '1px solid #f1f5f9' : 'none', background: r.status === 'PENDING' ? '#fffcf0' : '#fff' }}>
                         <td className="px-5 py-4">
                           <span className="text-xs font-mono font-semibold text-gray-500">#{String(r.id).padStart(4, '0')}</span>
                         </td>
-                        <td className="px-5 py-4 text-sm font-semibold text-gray-900 whitespace-nowrap">{r.roomName}</td>
-                        <td className="px-5 py-4 text-sm text-gray-600">{r.userName}</td>
-                        <td className="px-5 py-4 text-sm text-gray-600 whitespace-nowrap">{r.date}</td>
-                        <td className="px-5 py-4 text-sm text-gray-600 whitespace-nowrap">{r.startHour}:00–{r.endHour}:00</td>
-                        <td className="px-5 py-4 text-sm font-semibold text-gray-900 whitespace-nowrap">{r.price.toLocaleString()}원</td>
+                        <td className="px-5 py-4 text-sm font-semibold text-gray-900 whitespace-nowrap">{roomName(r.roomId)}</td>
+                        <td className="px-5 py-4 text-sm text-gray-600 whitespace-nowrap">{r.reservationDate}</td>
+                        <td className="px-5 py-4 text-sm text-gray-600 whitespace-nowrap">{r.startTime.slice(11, 16)}–{r.endTime.slice(11, 16)}</td>
                         <td className="px-5 py-4">
                           <span className="px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap"
                             style={{ background: s.bg, color: s.color }}>{s.label}</span>
                         </td>
                         <td className="px-5 py-4">
-                          {r.status === 'pending' ? (
+                          {r.status === 'PENDING' ? (
                             <div className="flex gap-1.5">
-                              <button onClick={() => approveReservation(r.id)}
+                              <button onClick={() => handleApprove(r.id)}
                                 className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-90 whitespace-nowrap"
                                 style={{ background: 'linear-gradient(135deg, #16a34a, #22c55e)' }}>
                                 승인
                               </button>
-                              <button onClick={() => rejectReservation(r.id)}
+                              <button onClick={() => handleReject(r.id)}
                                 className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90 whitespace-nowrap"
                                 style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
                                 거절

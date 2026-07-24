@@ -1,9 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router'
-import { useAuth, type ReservationStatus } from '../../context/AuthContext'
+import { useToast } from '../../context/ToastContext'
+import * as reservationsApi from '../../lib/api/reservations'
+import * as roomsApi from '../../lib/api/rooms'
+import { ApiError } from '../../lib/api/client'
+import type { ReservationResponse, RoomResponseDto } from '../../lib/api/types'
+import { toUiStatus, type ReservationStatus } from '../../lib/reservationStatus'
 import { Badge } from '../../components/ui/Badge'
 import { EmptyState } from '../../components/ui/EmptyState'
-import { useToast } from '../../context/ToastContext'
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 
 const STATUS_TABS: { key: ReservationStatus | 'all'; label: string }[] = [
   { key: 'all',          label: '전체' },
@@ -14,7 +19,7 @@ const STATUS_TABS: { key: ReservationStatus | 'all'; label: string }[] = [
   { key: 'rejected',     label: '거절됨' },
 ]
 
-/* ── 취소 사유 모달 ── */
+/* ── 취소 사유 모달 (사유 입력 필수) ── */
 function CancelModal({ onConfirm, onClose }: { onConfirm: (reason: string) => void; onClose: () => void }) {
   const [reason, setReason] = useState('')
   return (
@@ -30,7 +35,7 @@ function CancelModal({ onConfirm, onClose }: { onConfirm: (reason: string) => vo
           </button>
         </div>
         <div className="px-6 py-5">
-          <p className="text-sm text-gray-600 mb-3">취소 사유를 입력해주세요. (선택)</p>
+          <p className="text-sm text-gray-600 mb-3">취소 사유를 입력해주세요.</p>
           <textarea
             value={reason} onChange={(e) => setReason(e.target.value)}
             rows={4} placeholder="예: 일정 변경으로 인해 취소합니다."
@@ -43,8 +48,8 @@ function CancelModal({ onConfirm, onClose }: { onConfirm: (reason: string) => vo
             className="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-100 transition-all">
             닫기
           </button>
-          <button onClick={() => onConfirm(reason)}
-            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
+          <button onClick={() => onConfirm(reason)} disabled={!reason.trim()}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
             style={{ background: 'linear-gradient(135deg, #dc2626, #ef4444)' }}>
             취소 확정
           </button>
@@ -54,22 +59,59 @@ function CancelModal({ onConfirm, onClose }: { onConfirm: (reason: string) => vo
   )
 }
 
+interface EnrichedReservation {
+  reservation: ReservationResponse
+  room: RoomResponseDto | null
+}
+
 export default function ReservationHistoryPage() {
   const navigate = useNavigate()
-  const { reservations, cancelReservation, username } = useAuth()
   const { showToast } = useToast()
 
-  const [activeTab, setActiveTab]   = useState<ReservationStatus | 'all'>('all')
-  const [cancelId, setCancelId]     = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [items, setItems] = useState<EnrichedReservation[]>([])
+  const [activeTab, setActiveTab] = useState<ReservationStatus | 'all'>('all')
+  const [cancelId, setCancelId]   = useState<number | null>(null)
 
-  const myReservations = reservations.filter((r) => r.userName === username)
-  const filtered = activeTab === 'all' ? myReservations : myReservations.filter((r) => r.status === activeTab)
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const reservations = await reservationsApi.getMyReservations()
+      const roomCache = new Map<number, RoomResponseDto>()
+      const uniqueRoomIds = [...new Set(reservations.map((r) => r.roomId))]
+      await Promise.all(uniqueRoomIds.map(async (roomId) => {
+        try {
+          roomCache.set(roomId, await roomsApi.getRoom(roomId))
+        } catch {
+          /* 방이 삭제된 경우 등 — room은 null로 남김 */
+        }
+      }))
+      setItems(reservations.map((r) => ({ reservation: r, room: roomCache.get(r.roomId) ?? null })))
+    } catch {
+      showToast('예약 내역을 불러오지 못했습니다.', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }, [showToast])
 
-  const handleCancel = (reason: string) => {
-    if (cancelId == null) return
-    cancelReservation(cancelId, reason)
-    setCancelId(null)
-    showToast('예약이 취소되었습니다.', 'success')
+  useEffect(() => { load() }, [load])
+
+  const filtered = activeTab === 'all' ? items : items.filter((it) => toUiStatus(it.reservation.status) === activeTab)
+
+  const handleCancel = async (reason: string) => {
+    if (cancelId === null) return
+    try {
+      await reservationsApi.cancelReservation(cancelId, reason)
+      setCancelId(null)
+      showToast('예약이 취소되었습니다.', 'success')
+      await load()
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : '예약 취소에 실패했습니다.', 'error')
+    }
+  }
+
+  if (loading) {
+    return <div className="flex-1 flex items-center justify-center"><LoadingSpinner size="lg" /></div>
   }
 
   return (
@@ -84,7 +126,7 @@ export default function ReservationHistoryPage() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-2xl font-bold text-gray-900" style={{ letterSpacing: '-0.02em' }}>예약 내역</h1>
-              <p className="text-sm text-gray-500 mt-1">총 {myReservations.length}건</p>
+              <p className="text-sm text-gray-500 mt-1">총 {items.length}건</p>
             </div>
           </div>
 
@@ -92,7 +134,7 @@ export default function ReservationHistoryPage() {
           <div className="flex gap-2 overflow-x-auto pb-2 mb-5" style={{ scrollbarWidth: 'none' }}>
             {STATUS_TABS.map((tab) => {
               const active = activeTab === tab.key
-              const count  = tab.key === 'all' ? myReservations.length : myReservations.filter((r) => r.status === tab.key).length
+              const count  = tab.key === 'all' ? items.length : items.filter((it) => toUiStatus(it.reservation.status) === tab.key).length
               return (
                 <button key={tab.key} onClick={() => setActiveTab(tab.key)}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-all whitespace-nowrap shrink-0"
@@ -122,48 +164,51 @@ export default function ReservationHistoryPage() {
             />
           ) : (
             <div className="flex flex-col gap-3">
-              {filtered.map((r) => (
-                <div key={r.id} className="rounded-2xl p-4 md:p-5"
-                  style={{ background: '#fff', border: '1px solid #e8edf5', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-mono text-gray-400">#{String(r.id).padStart(4, '0')}</span>
-                        <h3 className="text-sm font-bold text-gray-900">{r.roomName}</h3>
+              {filtered.map(({ reservation: r, room }) => {
+                const hours = (new Date(r.endTime).getTime() - new Date(r.startTime).getTime()) / 3600000
+                const estimatedPrice = room ? Math.round(room.discountedPrice * hours) : null
+                const uiStatus = toUiStatus(r.status)
+                return (
+                  <div key={r.id} className="rounded-2xl p-4 md:p-5"
+                    style={{ background: '#fff', border: '1px solid #e8edf5', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-mono text-gray-400">#{String(r.id).padStart(4, '0')}</span>
+                          <h3 className="text-sm font-bold text-gray-900">{room?.name ?? `방 #${r.roomId}`}</h3>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 flex-wrap">
+                          <span>{r.reservationDate}</span>
+                          <span>·</span>
+                          <span>{r.startTime.slice(11, 16)} ~ {r.endTime.slice(11, 16)}</span>
+                          {estimatedPrice !== null && (
+                            <>
+                              <span>·</span>
+                              <span className="font-semibold text-gray-900">약 {estimatedPrice.toLocaleString()}원</span>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 flex-wrap">
-                        <span>{r.date}</span>
-                        <span>·</span>
-                        <span>{r.startHour}:00 ~ {r.endHour}:00</span>
-                        <span>·</span>
-                        <span className="font-semibold text-gray-900">{r.price.toLocaleString()}원</span>
-                      </div>
+                      <Badge variant="reservationStatus" value={uiStatus} />
                     </div>
-                    <Badge variant="reservationStatus" value={r.status} />
-                  </div>
 
-                  {r.cancelReason && (
-                    <div className="rounded-xl px-3 py-2 mb-3 text-xs text-gray-500" style={{ background: '#f8fafc', border: '1px solid #f1f5f9' }}>
-                      취소 사유: {r.cancelReason}
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => navigate(`/user/rooms/${r.roomId}`)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                      style={{ background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0' }}>
-                      룸 보기
-                    </button>
-                    {r.status === 'confirmed' && (
-                      <button onClick={() => setCancelId(r.id)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90"
-                        style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
-                        취소하기
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => navigate(`/user/rooms/${r.roomId}`)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                        style={{ background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0' }}>
+                        룸 보기
                       </button>
-                    )}
+                      {uiStatus === 'confirmed' && (
+                        <button onClick={() => setCancelId(r.id)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90"
+                          style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
+                          취소하기
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

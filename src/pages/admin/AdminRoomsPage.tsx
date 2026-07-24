@@ -1,127 +1,21 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router'
 import { useAuth, GRADE_CONFIG } from '../../context/AuthContext'
+import { useToast } from '../../context/ToastContext'
+import * as roomsApi from '../../lib/api/rooms'
+import * as wishlistsApi from '../../lib/api/wishlists'
+import * as reviewsApi from '../../lib/api/reviews'
+import * as reservationsApi from '../../lib/api/reservations'
+import { ApiError } from '../../lib/api/client'
+import type { RoomResponseDto } from '../../lib/api/types'
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 
-/* 취소특가 카운트다운: 방 id를 시드로 삼아 15분 주기 내 위상을 다르게 */
-export function CancelSaleCountdown({ roomId }: { roomId: number }) {
-  const TOTAL = 15 * 60 // 15분
-  const getRemaining = () => {
-    const offset = (roomId * 97) % TOTAL // 방마다 시작 위상 차이
-    const elapsed = (Math.floor(Date.now() / 1000) + offset) % TOTAL
-    return TOTAL - elapsed
-  }
-  const [secs, setSecs] = useState(getRemaining)
-  useEffect(() => {
-    const id = setInterval(() => setSecs(getRemaining()), 1000)
-    return () => clearInterval(id)
-  }, [])
-  const m = String(Math.floor(secs / 60)).padStart(2, '0')
-  const s = String(secs % 60).padStart(2, '0')
-  const urgent = secs < 60
-  return (
-    <div className="flex items-center gap-1 px-2 py-1 rounded-lg"
-      style={{ background: urgent ? '#fef2f2' : '#fff7ed', border: `1px solid ${urgent ? '#fca5a5' : '#fed7aa'}` }}>
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={urgent ? '#dc2626' : '#ea580c'} strokeWidth="2.5" strokeLinecap="round">
-        <circle cx="12" cy="12" r="10" /><path d="M12 6v6l3 3" />
-      </svg>
-      <span className="text-[11px] font-bold tabular-nums leading-none" style={{ color: urgent ? '#dc2626' : '#ea580c' }}>
-        {m}:{s}
-      </span>
-    </div>
-  )
-}
-
-export type Room = {
-  id: number
-  name: string
-  capacity: number
-  price: number
-  cancelSalePrice: number | null
-  status: 'available' | 'reserved'
-  reservedSlots: number[]
-  baseFavCount: number
-}
-
-export const ROOMS: Room[] = [
-  { id: 1, name: '세미나실 A',    capacity: 8,  price: 5000, cancelSalePrice: 3500, status: 'available', reservedSlots: [10, 11, 14],              baseFavCount: 12 },
-  { id: 2, name: '소회의실 B',    capacity: 4,  price: 3000, cancelSalePrice: null, status: 'reserved',  reservedSlots: [9,10,11,12,13,14,15,16,17,18], baseFavCount: 5  },
-  { id: 3, name: '독서실 C',      capacity: 1,  price: 1500, cancelSalePrice: 900,  status: 'available', reservedSlots: [9, 13, 14],               baseFavCount: 8  },
-  { id: 4, name: '그룹스터디룸 D', capacity: 6,  price: 4500, cancelSalePrice: null, status: 'available', reservedSlots: [],                         baseFavCount: 20 },
-  { id: 5, name: '세미나실 E',    capacity: 10, price: 6000, cancelSalePrice: 4200, status: 'available', reservedSlots: [16, 17, 18],               baseFavCount: 17 },
-  { id: 6, name: '소회의실 F',    capacity: 4,  price: 3000, cancelSalePrice: null, status: 'available', reservedSlots: [9, 10],                    baseFavCount: 3  },
-  { id: 7, name: '독서실 G',      capacity: 1,  price: 1500, cancelSalePrice: null, status: 'available', reservedSlots: [15, 16],                   baseFavCount: 6  },
-]
-
-const HOURS = Array.from({ length: 12 }, (_, i) => i + 9)
-
-const STATUS_LABEL = {
-  available: { label: '사용 가능', color: '#16a34a', bg: '#f0fdf4', dot: '#22c55e' },
-  reserved:  { label: '예약됨',   color: '#b45309', bg: '#fffbeb', dot: '#f59e0b' },
-}
-
-/* ─── 서브 컴포넌트 ──────────────────────────────────── */
-
-function StatusBadge({ status }: { status: Room['status'] }) {
-  const s = STATUS_LABEL[status]
-  return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium" style={{ color: s.color, background: s.bg }}>
-      <span className="w-1.5 h-1.5 rounded-full" style={{ background: s.dot }} />
-      {s.label}
-    </span>
-  )
-}
-
-export function TimeSlotRow({ room, currentHour }: { room: Room; currentHour: number | null }) {
-  return (
-    <div>
-      <div className="flex mb-0.5">
-        {HOURS.map((h) => (
-          <div key={h} className="flex-1 text-center" style={{ minWidth: 0 }}>
-            <span className="text-[9px] font-medium" style={{ color: h === currentHour ? '#1e3a5f' : '#94a3b8' }}>{h}</span>
-          </div>
-        ))}
-      </div>
-      <div className="flex gap-px rounded-md overflow-hidden" style={{ height: '18px' }}>
-        {HOURS.map((h) => {
-          const isRes = room.reservedSlots.includes(h)
-          const isCur = h === currentHour
-          const bg = isRes ? '#fde68a' : '#bbf7d0'
-          return (
-            <div key={h} title={`${h}:00  ${isRes ? '예약됨' : '사용 가능'}${isCur ? '  ← 현재' : ''}`}
-              className="flex-1 relative flex items-center justify-center" style={{ background: bg, minWidth: 0 }}>
-              {isCur && (
-                <svg width="7" height="7" viewBox="0 0 6 6" className="absolute pointer-events-none">
-                  <polygon points="3,0 6,3 3,6 0,3" fill="#1e3a5f" />
-                </svg>
-              )}
-            </div>
-          )
-        })}
-      </div>
-      <div className="flex items-center gap-3 mt-1">
-        {[
-          { bg: '#bbf7d0', l: '가능', symbol: false },
-          { bg: '#fde68a', l: '예약됨', symbol: false },
-          ...(currentHour !== null ? [{ bg: '', l: '현재', symbol: true }] : []),
-        ].map((x) => (
-          <div key={x.l} className="flex items-center gap-1">
-            {x.symbol ? (
-              <svg width="8" height="8" viewBox="0 0 6 6"><polygon points="3,0 6,3 3,6 0,3" fill="#1e3a5f" /></svg>
-            ) : (
-              <div className="w-2 h-2 rounded-sm" style={{ background: x.bg }} />
-            )}
-            <span className="text-[9px] text-gray-400">{x.l}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
+export type Room = RoomResponseDto
 
 function StarRating({ value }: { value: number }) {
   return (
     <div className="flex gap-0.5">
-      {[1,2,3,4,5].map((i) => (
+      {[1, 2, 3, 4, 5].map((i) => (
         <svg key={i} width="11" height="11" viewBox="0 0 24 24" fill={i <= value ? '#f59e0b' : '#e5e7eb'}>
           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
         </svg>
@@ -132,31 +26,27 @@ function StarRating({ value }: { value: number }) {
 
 /* ─── 방 생성 다이얼로그 ─────────────────────────────── */
 
-function CreateRoomDialog({ onClose, onCreate }: { onClose: () => void; onCreate: (room: Room) => void }) {
+function CreateRoomDialog({ onClose, onCreate }: { onClose: () => void; onCreate: (room: Room) => Promise<void> }) {
   const [name, setName]         = useState('')
   const [capacity, setCapacity] = useState('')
   const [price, setPrice]       = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [error, setError]       = useState('')
 
   const canSubmit = name.trim() && Number(capacity) > 0 && Number(price) > 0
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!canSubmit) return
     setSubmitting(true)
-    setTimeout(() => {
-      const newRoom: Room = {
-        id: Date.now(),
-        name: name.trim(),
-        capacity: Number(capacity),
-        price: Number(price),
-        cancelSalePrice: null,
-        status: 'available',
-        reservedSlots: [],
-        baseFavCount: 0,
-      }
-      onCreate(newRoom)
-    }, 400)
+    setError('')
+    try {
+      const created = await roomsApi.createRoom({ name: name.trim(), capacity: Number(capacity), price: Number(price) })
+      await onCreate(created)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '방 추가에 실패했습니다.')
+      setSubmitting(false)
+    }
   }
 
   const fields = [
@@ -173,6 +63,9 @@ function CreateRoomDialog({ onClose, onCreate }: { onClose: () => void; onCreate
           <h2 className="text-base font-bold text-gray-900">새 방 추가</h2>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-4">
+          {error && (
+            <div className="px-3 py-2 rounded-xl text-xs font-medium" style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }}>{error}</div>
+          )}
           {fields.map(({ label, value, setter, placeholder, type }) => (
             <div key={label}>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
@@ -208,14 +101,24 @@ function CreateRoomDialog({ onClose, onCreate }: { onClose: () => void; onCreate
 
 /* ─── 수정 다이얼로그 ─────────────────────────────────── */
 
-type EditForm = { name: string; capacity: string; price: string; status: Room['status'] }
+type EditForm = { name: string; capacity: string; price: string }
 
-function EditRoomDialog({ room, onClose }: { room: Room; onClose: () => void }) {
-  const [form, setForm] = useState<EditForm>({
-    name: room.name, capacity: String(room.capacity), price: String(room.price),
-    status: room.status,
-  })
+function EditRoomDialog({ room, onClose, onSave }: { room: Room; onClose: () => void; onSave: (id: number, form: EditForm) => Promise<void> }) {
+  const [form, setForm] = useState<EditForm>({ name: room.name, capacity: String(room.capacity), price: String(room.price) })
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
   const set = (k: keyof EditForm) => (v: string) => setForm((f) => ({ ...f, [k]: v }))
+
+  const handleSave = async () => {
+    setSubmitting(true)
+    setError('')
+    try {
+      await onSave(room.id, form)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '수정에 실패했습니다.')
+      setSubmitting(false)
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.4)' }}>
@@ -230,6 +133,9 @@ function EditRoomDialog({ room, onClose }: { room: Room; onClose: () => void }) 
         </div>
 
         <div className="px-6 py-5 flex flex-col gap-4">
+          {error && (
+            <div className="px-3 py-2 rounded-xl text-xs font-medium" style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }}>{error}</div>
+          )}
           {[
             { label: '방 이름', key: 'name' as const, type: 'text', placeholder: '세미나실 A' },
             { label: '수용 인원 (명)', key: 'capacity' as const, type: 'number', placeholder: '8' },
@@ -243,34 +149,16 @@ function EditRoomDialog({ room, onClose }: { room: Room; onClose: () => void }) 
                 style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0' }} />
             </div>
           ))}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">상태</label>
-            <div className="flex gap-2">
-              {(['available', 'reserved'] as const).map((s) => (
-                <button key={s} type="button" onClick={() => set('status')(s)}
-                  className="flex-1 py-2 rounded-xl text-xs font-semibold border-[1.5px] transition-all"
-                  style={{
-                    background: form.status === s ? (s === 'available' ? '#f0fdf4' : '#fffbeb') : '#f8fafc',
-                    color: form.status === s ? (s === 'available' ? '#16a34a' : '#b45309') : '#94a3b8',
-                    borderColor: form.status === s ? (s === 'available' ? '#86efac' : '#fde68a') : '#e2e8f0',
-                  }}>
-                  {s === 'available' ? '사용 가능' : '예약됨'}
-                </button>
-              ))}
-            </div>
-          </div>
-
         </div>
 
         <div className="flex gap-2 px-6 py-4" style={{ borderTop: '1px solid #f1f5f9' }}>
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-100 transition-all">
             취소
           </button>
-          <button onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
+          <button onClick={handleSave} disabled={submitting}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
             style={{ background: 'linear-gradient(135deg, #1e3a5f, #2d5a9e)' }}>
-            저장
+            {submitting ? '저장 중...' : '저장'}
           </button>
         </div>
       </div>
@@ -281,9 +169,9 @@ function EditRoomDialog({ room, onClose }: { room: Room; onClose: () => void }) 
 /* ─── 갤러리 카드 ─────────────────────────────────── */
 
 function RoomCard({
-  room, isFav, isMyRoom, isUsingNow, favCount, dp, discountRate, avg, reviewCount, canReview, isAdmin, onFav, onReview, onEdit, onDelete, onReserve,
+  room, isFav, isMyRoom, favCount, dp, avg, reviewCount, canReview, isAdmin, onFav, onReview, onEdit, onDelete, onReserve,
 }: {
-  room: Room; isFav: boolean; isMyRoom: boolean; isUsingNow: boolean; favCount: number; dp: number | null; discountRate: number
+  room: Room; isFav: boolean; isMyRoom: boolean; favCount: number; dp: number | null
   avg: number | null; reviewCount: number; canReview: boolean; isAdmin: boolean
   onFav: () => void; onReview: () => void; onEdit: () => void; onDelete: () => void; onReserve: () => void
 }) {
@@ -300,9 +188,7 @@ function RoomCard({
             <div className="flex items-center gap-1.5 flex-wrap">
               <button onClick={onReview} className="text-sm font-bold text-gray-900 hover:text-blue-700 transition-colors">{room.name}</button>
               {isMyRoom && <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: '#dbeafe', color: '#1d4ed8' }}>예약함</span>}
-              {room.cancelSalePrice && <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: '#fef2f2', color: '#dc2626' }}>취소특가</span>}
             </div>
-            {room.cancelSalePrice && <CancelSaleCountdown roomId={room.id} />}
             <div className="text-xs font-medium mt-0.5" style={{ color: '#4b6a8a' }}>최대 {room.capacity}명</div>
           </div>
         </div>
@@ -319,16 +205,13 @@ function RoomCard({
       {/* 가격 + 평점 */}
       <div className="px-5 pb-3 flex items-center justify-between">
         <div>
-          {dp ? (
+          {dp !== null ? (
             <div>
               <span className="text-base font-bold text-gray-900">{dp.toLocaleString()}원</span>
               <span className="ml-1.5 text-xs text-gray-400 line-through">{room.price.toLocaleString()}원</span>
-              <span className="ml-1 text-[10px] font-bold px-1 py-0.5 rounded" style={{ background: '#fee2e2', color: '#dc2626' }}>-{Math.round(discountRate * 100)}%</span>
-            </div>
-          ) : room.cancelSalePrice ? (
-            <div>
-              <span className="text-base font-bold" style={{ color: '#dc2626' }}>{room.cancelSalePrice.toLocaleString()}원</span>
-              <span className="ml-1.5 text-xs text-gray-400 line-through">{room.price.toLocaleString()}원</span>
+              <span className="ml-1 text-[10px] font-bold px-1 py-0.5 rounded" style={{ background: '#fee2e2', color: '#dc2626' }}>
+                -{Math.round((1 - dp / room.price) * 100)}%
+              </span>
             </div>
           ) : (
             <span className="text-base font-semibold text-gray-900">{room.price.toLocaleString()}원</span>
@@ -342,18 +225,6 @@ function RoomCard({
         ) : <span className="text-xs text-gray-300">리뷰 없음</span>}
       </div>
 
-      {/* 상태 */}
-      <div className="px-5 pb-3 flex items-center justify-between">
-        {isUsingNow ? (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium" style={{ color: '#1e40af', background: '#dbeafe' }}>
-            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#3b82f6' }} />
-            사용 중
-          </span>
-        ) : (
-          <StatusBadge status={room.status} />
-        )}
-      </div>
-
       {/* 하단 버튼 */}
       <div className="px-5 pb-4 mt-auto flex gap-2">
         {isAdmin ? (
@@ -365,8 +236,8 @@ function RoomCard({
           </>
         ) : (
           <>
-            <button onClick={onReserve} disabled={room.status === 'reserved'}
-              className="flex-1 py-2 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
+            <button onClick={onReserve}
+              className="flex-1 py-2 rounded-xl text-xs font-semibold text-white transition-all hover:opacity-90"
               style={{ background: 'linear-gradient(135deg, #1e3a5f, #2d5a9e)' }}>예약하기</button>
             {canReview && (
               <button onClick={onReview} className="py-2 px-3 rounded-xl text-xs font-semibold transition-all hover:opacity-90"
@@ -382,86 +253,155 @@ function RoomCard({
 /* ─── 메인 페이지 ─────────────────────────────────── */
 
 export default function AdminRoomsPage() {
-  const { isAdmin, grade, favorites, toggleFavorite, reservations, reviews } = useAuth()
+  const { isAdmin, grade } = useAuth()
+  const { showToast } = useToast()
   const navigate = useNavigate()
-  const [rooms, setRooms] = useState<Room[]>(ROOMS)
+
+  const [rooms, setRooms] = useState<Room[]>([])
+  const [loading, setLoading] = useState(true)
+  const [favoriteMap, setFavoriteMap] = useState<Record<number, number>>({}) // roomId -> wishlistId
+  const [favCounts, setFavCounts] = useState<Record<number, number>>({})
+  const [ratings, setRatings] = useState<Record<number, { avg: number | null; count: number }>>({})
+  const [myRoomIds, setMyRoomIds] = useState<Set<number>>(new Set())
+  const [reviewableRoomIds, setReviewableRoomIds] = useState<Set<number>>(new Set())
   const [showCreate, setShowCreate] = useState(false)
 
   const [searchName, setSearchName]     = useState('')
   const [maxPrice, setMaxPrice]         = useState('')
   const [minCapacity, setMinCapacity]   = useState('')
-  const [filterStatus, setFilterStatus] = useState<Room['status'] | 'all'>('all')
-  const [tagCancelSale, setTagCancelSale] = useState(false)
-  const [tagFavorite, setTagFavorite]     = useState(false)
-  const [viewMode, setViewMode]           = useState<'list' | 'gallery'>('list')
-  const [editRoom, setEditRoom]           = useState<Room | null>(null)
+  const [tagFavorite, setTagFavorite]   = useState(false)
+  const [viewMode, setViewMode]         = useState<'list' | 'gallery'>('list')
+  const [editRoom, setEditRoom]         = useState<Room | null>(null)
 
-  const now = new Date()
-  const currentHour = now.getHours()
-  const displayHour = currentHour >= 9 && currentHour <= 20 ? currentHour : null
+  const loadRooms = useCallback(async () => {
+    setLoading(true)
+    try {
+      const page = await roomsApi.listRooms(0, 100)
+      const list = page.content
+      setRooms(list)
 
-  const discountRate = (!isAdmin && grade) ? GRADE_CONFIG[grade].discount : 0
-  const discountedPrice = (price: number) => discountRate > 0 ? Math.round(price * (1 - discountRate)) : null
+      const [counts, summaries] = await Promise.all([
+        Promise.all(list.map((r) => wishlistsApi.countWishlistByRoom(r.id).catch(() => 0))),
+        Promise.all(list.map((r) => reviewsApi.getRatingSummary(r.id).catch(() => ({ averageRating: 0, reviewCount: 0 })))),
+      ])
+      const nextCounts: Record<number, number> = {}
+      const nextRatings: Record<number, { avg: number | null; count: number }> = {}
+      list.forEach((r, i) => {
+        nextCounts[r.id] = counts[i]
+        nextRatings[r.id] = summaries[i].reviewCount > 0 ? { avg: summaries[i].averageRating, count: summaries[i].reviewCount } : { avg: null, count: 0 }
+      })
+      setFavCounts(nextCounts)
+      setRatings(nextRatings)
+
+      if (!isAdmin) {
+        const [wishlist, myReservations] = await Promise.all([
+          wishlistsApi.getWishlists(),
+          reservationsApi.getMyReservations(),
+        ])
+        const nextFavMap: Record<number, number> = {}
+        wishlist.forEach((w) => { nextFavMap[w.roomId] = w.id })
+        setFavoriteMap(nextFavMap)
+
+        const myRooms = new Set(myReservations.map((r) => r.roomId))
+        setMyRoomIds(myRooms)
+        setReviewableRoomIds(new Set(myReservations.filter((r) => r.status === 'CONFIRMED' || r.status === 'PAYMENT_DONE').map((r) => r.roomId)))
+      }
+    } catch {
+      showToast('스터디룸 목록을 불러오지 못했습니다.', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }, [isAdmin, showToast])
+
+  useEffect(() => { loadRooms() }, [loadRooms])
+
+  const discountRate = grade ? GRADE_CONFIG[grade].discount : 0
 
   const filtered = rooms.filter((r) => {
     if (searchName && !r.name.includes(searchName)) return false
-    if (tagCancelSale && !r.cancelSalePrice) return false
-    if (tagFavorite && !favorites.includes(r.id)) return false
-    const effectivePrice = discountedPrice(r.price) ?? r.cancelSalePrice ?? r.price
+    if (tagFavorite && favoriteMap[r.id] === undefined) return false
+    const effectivePrice = r.discountedPrice ?? r.price
     if (maxPrice && effectivePrice > Number(maxPrice)) return false
     if (minCapacity && r.capacity < Number(minCapacity)) return false
-    if (filterStatus !== 'all' && r.status !== filterStatus) return false
     return true
   })
 
-  const nowAvailable = displayHour !== null
-    ? rooms.filter((r) => r.status === 'available' && !r.reservedSlots.includes(displayHour)).length
-    : rooms.filter((r) => r.status === 'available').length
-  const nowReserved = displayHour !== null
-    ? rooms.filter((r) => r.reservedSlots.includes(displayHour)).length
-    : rooms.filter((r) => r.status === 'reserved').length
-
-  const hasReservation  = (roomId: number) => reservations.some((r) => r.roomId === roomId && r.status === 'confirmed')
-  const roomReviews     = (roomId: number) => reviews.filter((r) => r.roomId === roomId)
-  const avgRating       = (roomId: number) => {
-    const rs = roomReviews(roomId); return rs.length ? rs.reduce((a, b) => a + b.rating, 0) / rs.length : null
+  const toggleFavorite = async (room: Room) => {
+    const existingId = favoriteMap[room.id]
+    try {
+      if (existingId !== undefined) {
+        await wishlistsApi.removeWishlist(existingId)
+        setFavoriteMap((m) => { const next = { ...m }; delete next[room.id]; return next })
+        setFavCounts((c) => ({ ...c, [room.id]: Math.max(0, (c[room.id] ?? 1) - 1) }))
+      } else {
+        const created = await wishlistsApi.addWishlist({ roomId: room.id })
+        setFavoriteMap((m) => ({ ...m, [room.id]: created.id }))
+        setFavCounts((c) => ({ ...c, [room.id]: (c[room.id] ?? 0) + 1 }))
+      }
+    } catch {
+      showToast('즐겨찾기 처리에 실패했습니다.', 'error')
+    }
   }
 
-  const isUsingNow = (room: Room) =>
-    !isAdmin && displayHour !== null &&
-    room.reservedSlots.includes(displayHour) &&
-    reservations.some((r) => r.roomId === room.id && r.status === 'confirmed' && r.startHour <= displayHour && r.endHour > displayHour)
+  const handleDelete = async (room: Room) => {
+    try {
+      await roomsApi.deleteRoom(room.id)
+      setRooms((prev) => prev.filter((r) => r.id !== room.id))
+      showToast('방이 삭제되었습니다.', 'success')
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : '삭제에 실패했습니다.', 'error')
+    }
+  }
 
-  const favCount = (room: Room) => room.baseFavCount + (favorites.includes(room.id) ? 1 : 0)
+  const rowProps = (room: Room) => {
+    const dp = room.discountedPrice < room.price ? room.discountedPrice : null
+    const rating = ratings[room.id]
+    return {
+      room,
+      isFav:       favoriteMap[room.id] !== undefined,
+      isMyRoom:    !isAdmin && myRoomIds.has(room.id),
+      favCount:    favCounts[room.id] ?? 0,
+      dp,
+      avg:         rating?.avg ?? null,
+      reviewCount: rating?.count ?? 0,
+      canReview:   !isAdmin && reviewableRoomIds.has(room.id),
+      isAdmin,
+      onFav:       () => toggleFavorite(room),
+      onReview:    () => navigate(`${isAdmin ? '/admin' : '/user'}/rooms/${room.id}/reviews`),
+      onEdit:      () => setEditRoom(room),
+      onDelete:    () => handleDelete(room),
+      onReserve:   () => navigate(`/user/rooms/${room.id}/reserve`),
+    }
+  }
 
-  const rowProps = (room: Room) => ({
-    room,
-    isFav:        favorites.includes(room.id),
-    isMyRoom:     !isAdmin && hasReservation(room.id),
-    isUsingNow:   isUsingNow(room),
-    favCount:     favCount(room),
-    dp:           discountedPrice(room.price),
-    discountRate,
-    avg:          avgRating(room.id),
-    reviewCount:  roomReviews(room.id).length,
-    canReview:    !isAdmin && hasReservation(room.id),
-    isAdmin,
-    onFav:        () => toggleFavorite(room.id),
-    onReview:     () => navigate(`${isAdmin ? '/admin' : '/user'}/rooms/${room.id}/reviews`),
-    onEdit:       () => setEditRoom(room),
-    onDelete:     () => {},
-    onReserve:    () => navigate(`/user/rooms/${room.id}/reserve`),
-  })
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    )
+  }
 
   return (
     <div className="flex-1 overflow-auto">
       {showCreate && (
         <CreateRoomDialog
           onClose={() => setShowCreate(false)}
-          onCreate={(room) => { setRooms((prev) => [...prev, room]); setShowCreate(false) }}
+          onCreate={async (room) => { setRooms((prev) => [...prev, room]); setShowCreate(false); showToast('방이 추가되었습니다.', 'success') }}
         />
       )}
-      {editRoom && <EditRoomDialog room={editRoom} onClose={() => setEditRoom(null)} />}
+      {editRoom && (
+        <EditRoomDialog
+          room={editRoom}
+          onClose={() => setEditRoom(null)}
+          onSave={async (id, form) => {
+            const updated = await roomsApi.updateRoom(id, { name: form.name.trim(), capacity: Number(form.capacity), price: Number(form.price) })
+            setRooms((prev) => prev.map((r) => (r.id === id ? updated : r)))
+            setEditRoom(null)
+            showToast('방 정보가 수정되었습니다.', 'success')
+          }}
+        />
+      )}
 
       <div className="max-w-6xl mx-auto px-6 py-8">
 
@@ -515,25 +455,14 @@ export default function AdminRoomsPage() {
           </div>
         )}
 
-        {/* 현재 시간 + 통계 */}
-        <div className="mb-3 flex items-center gap-2">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
-          <span className="text-xs font-medium text-gray-500">
-            현재 시간: <span className="font-bold text-gray-800">{displayHour !== null ? `${String(displayHour).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}` : '운영 시간 외'}</span>
-            {displayHour !== null && <span className="ml-1 text-gray-400">({displayHour}:00–{displayHour + 1}:00 기준)</span>}
-          </span>
-        </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           {[
-            { label: '전체', value: rooms.length, color: '#2d5a9e', bg: '#eff6ff', sub: null },
-            { label: '사용 가능', value: nowAvailable, color: '#16a34a', bg: '#f0fdf4', sub: displayHour ? '현재 기준' : null },
-            { label: '예약됨', value: nowReserved, color: '#b45309', bg: '#fffbeb', sub: displayHour ? '현재 기준' : null },
+            { label: '전체', value: rooms.length, color: '#2d5a9e', bg: '#eff6ff' },
+            { label: '즐겨찾기', value: Object.keys(favoriteMap).length, color: '#b45309', bg: '#fffbeb' },
+            { label: '검색 결과', value: filtered.length, color: '#16a34a', bg: '#f0fdf4' },
           ].map((s) => (
             <div key={s.label} className="rounded-2xl p-5" style={{ background: '#ffffff', border: '1px solid #e8edf5', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-              <div className="flex items-center justify-between mb-1">
-                <div className="text-xs font-medium text-gray-500">{s.label}</div>
-                {s.sub && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md" style={{ background: '#f1f5f9', color: '#64748b' }}>{s.sub}</span>}
-              </div>
+              <div className="text-xs font-medium text-gray-500 mb-1">{s.label}</div>
               <div className="text-3xl font-bold" style={{ color: s.color, letterSpacing: '-0.03em' }}>{s.value}</div>
             </div>
           ))}
@@ -566,40 +495,19 @@ export default function AdminRoomsPage() {
             </div>
           </div>
 
-          {/* 태그 + 상태 필터 */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-gray-400 mr-1">필터</span>
-            {/* 취소특가 태그 */}
-            <button onClick={() => setTagCancelSale((v) => !v)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
-              style={{ background: tagCancelSale ? '#fef2f2' : '#f8fafc', color: tagCancelSale ? '#dc2626' : '#64748b', border: `1.5px solid ${tagCancelSale ? '#fca5a5' : '#e2e8f0'}` }}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill={tagCancelSale ? '#dc2626' : 'none'} stroke={tagCancelSale ? '#dc2626' : 'currentColor'} strokeWidth="2" strokeLinecap="round">
-                <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
-              </svg>
-              취소 특가
-            </button>
-            {/* 즐겨찾기 태그 */}
-            <button onClick={() => setTagFavorite((v) => !v)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
-              style={{ background: tagFavorite ? '#fffbeb' : '#f8fafc', color: tagFavorite ? '#b45309' : '#64748b', border: `1.5px solid ${tagFavorite ? '#fde68a' : '#e2e8f0'}` }}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill={tagFavorite ? '#f59e0b' : 'none'} stroke={tagFavorite ? '#f59e0b' : 'currentColor'} strokeWidth="2" strokeLinecap="round">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-              </svg>
-              즐겨찾기
-            </button>
-            <div className="w-px h-4 bg-gray-200 mx-1" />
-            {(['all', 'available', 'reserved'] as const).map((s) => {
-              const labels = { all: '전체', available: '사용 가능', reserved: '예약됨' }
-              const active = filterStatus === s
-              return (
-                <button key={s} onClick={() => setFilterStatus(s)}
-                  className="px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap"
-                  style={{ background: active ? '#1e3a5f' : '#f8fafc', color: active ? '#fff' : '#64748b', border: `1.5px solid ${active ? '#1e3a5f' : '#e2e8f0'}` }}>
-                  {labels[s]}
-                </button>
-              )
-            })}
-          </div>
+          {!isAdmin && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-gray-400 mr-1">필터</span>
+              <button onClick={() => setTagFavorite((v) => !v)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+                style={{ background: tagFavorite ? '#fffbeb' : '#f8fafc', color: tagFavorite ? '#b45309' : '#64748b', border: `1.5px solid ${tagFavorite ? '#fde68a' : '#e2e8f0'}` }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill={tagFavorite ? '#f59e0b' : 'none'} stroke={tagFavorite ? '#f59e0b' : 'currentColor'} strokeWidth="2" strokeLinecap="round">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+                즐겨찾기
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ─── 갤러리 뷰 ─── */}
@@ -622,14 +530,14 @@ export default function AdminRoomsPage() {
             <table className="w-full">
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e8edf5' }}>
-                  {['', '방 이름', '가격', '평점', '시간대 예약 현황', '상태', ...(isAdmin ? ['관리'] : ['예약 / 리뷰'])].map((h, i) => (
+                  {['', '방 이름', '가격', '평점', ...(isAdmin ? ['관리'] : ['예약 / 리뷰'])].map((h, i) => (
                     <th key={i} className="text-left px-4 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-16 text-sm text-gray-400">검색 결과가 없습니다</td></tr>
+                  <tr><td colSpan={5} className="text-center py-16 text-sm text-gray-400">검색 결과가 없습니다</td></tr>
                 ) : filtered.map((room, i) => {
                   const p  = rowProps(room)
                   const dp = p.dp
@@ -656,29 +564,22 @@ export default function AdminRoomsPage() {
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <button onClick={p.onReview} className="text-sm font-semibold text-gray-900 hover:text-blue-700 transition-colors">{room.name}</button>
                               {p.isMyRoom && <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: '#dbeafe', color: '#1d4ed8' }}>예약함</span>}
-                              {room.cancelSalePrice && <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: '#fef2f2', color: '#dc2626' }}>취소특가</span>}
                             </div>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <div className="text-xs font-medium" style={{ color: '#4b6a8a' }}>최대 {room.capacity}명</div>
-                              {room.cancelSalePrice && <CancelSaleCountdown roomId={room.id} />}
-                            </div>
+                            <div className="text-xs font-medium mt-0.5" style={{ color: '#4b6a8a' }}>최대 {room.capacity}명</div>
                           </div>
                         </div>
                       </td>
                       {/* 가격 */}
                       <td className="px-4 py-4 whitespace-nowrap">
-                        {dp ? (
+                        {dp !== null ? (
                           <div>
                             <div className="text-sm font-bold text-gray-900">{dp.toLocaleString()}원</div>
                             <div className="flex items-center gap-1 mt-0.5">
                               <span className="text-xs text-gray-400 line-through">{room.price.toLocaleString()}원</span>
-                              <span className="text-[10px] font-bold px-1 py-0.5 rounded" style={{ background: '#fee2e2', color: '#dc2626' }}>-{Math.round(discountRate * 100)}%</span>
+                              <span className="text-[10px] font-bold px-1 py-0.5 rounded" style={{ background: '#fee2e2', color: '#dc2626' }}>
+                                -{Math.round((1 - dp / room.price) * 100)}%
+                              </span>
                             </div>
-                          </div>
-                        ) : room.cancelSalePrice ? (
-                          <div>
-                            <div className="text-sm font-bold" style={{ color: '#dc2626' }}>{room.cancelSalePrice.toLocaleString()}원</div>
-                            <div className="text-xs text-gray-400 line-through mt-0.5">{room.price.toLocaleString()}원</div>
                           </div>
                         ) : (
                           <div className="text-sm font-semibold text-gray-900">{room.price.toLocaleString()}원</div>
@@ -689,21 +590,6 @@ export default function AdminRoomsPage() {
                         {p.avg !== null ? (
                           <div><StarRating value={Math.round(p.avg)} /><div className="text-xs text-gray-400 mt-0.5">{p.avg.toFixed(1)} ({p.reviewCount}개)</div></div>
                         ) : <span className="text-xs text-gray-300">없음</span>}
-                      </td>
-                      {/* 시간대 */}
-                      <td className="px-4 py-4" style={{ minWidth: '260px' }}>
-                        <TimeSlotRow room={room} currentHour={displayHour} />
-                      </td>
-                      {/* 상태 */}
-                      <td className="px-4 py-4">
-                        {p.isUsingNow ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium" style={{ color: '#1e40af', background: '#dbeafe' }}>
-                            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#3b82f6' }} />
-                            사용 중
-                          </span>
-                        ) : (
-                          <StatusBadge status={room.status} />
-                        )}
                       </td>
                       {/* 관리/리뷰 */}
                       {isAdmin ? (
@@ -724,8 +610,8 @@ export default function AdminRoomsPage() {
                       ) : (
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-1.5">
-                            <button onClick={p.onReserve} disabled={room.status === 'reserved'}
-                              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40 whitespace-nowrap"
+                            <button onClick={p.onReserve}
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-90 whitespace-nowrap"
                               style={{ background: 'linear-gradient(135deg, #1e3a5f, #2d5a9e)' }}>
                               예약
                             </button>
@@ -743,15 +629,6 @@ export default function AdminRoomsPage() {
           </div>
           <div className="px-5 py-3 flex items-center justify-between" style={{ background: '#f8fafc', borderTop: '1px solid #e8edf5' }}>
             <span className="text-xs text-gray-400">{filtered.length}개 표시 중 (전체 {rooms.length}개)</span>
-            <div className="flex items-center gap-1">
-              <button className="p-1.5 rounded-lg text-gray-400 disabled:opacity-30" disabled>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6" /></svg>
-              </button>
-              <span className="px-3 py-1 rounded-lg text-xs font-semibold text-white" style={{ background: '#1e3a5f' }}>1</span>
-              <button className="p-1.5 rounded-lg text-gray-400 disabled:opacity-30" disabled>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="9 18 15 12 9 6" /></svg>
-              </button>
-            </div>
           </div>
         </div>
         )}

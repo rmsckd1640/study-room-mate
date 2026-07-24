@@ -62,7 +62,7 @@ export default function UserLayout() {
   const location  = useLocation()
   const breadcrumb = getBreadcrumb(location.pathname)
 
-  const handleLogout = () => { logout(); navigate('/login') }
+  const handleLogout = async () => { await logout(); navigate('/login') }
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row" style={{ background: '#f4f7fb' }}>

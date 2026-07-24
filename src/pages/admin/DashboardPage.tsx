@@ -1,7 +1,11 @@
-import { useAuth } from '../../context/AuthContext'
-import { ROOMS } from './AdminRoomsPage'
+import { useState, useEffect, useCallback } from 'react'
+import * as roomsApi from '../../lib/api/rooms'
+import * as reservationsApi from '../../lib/api/reservations'
+import type { ReservationResponse, RoomResponseDto } from '../../lib/api/types'
+import { toUiStatus, type ReservationStatus } from '../../lib/reservationStatus'
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 
-const STATUS_COLOR: Record<string, { color: string; bg: string; label: string }> = {
+const STATUS_COLOR: Record<ReservationStatus, { color: string; bg: string; label: string }> = {
   pending:      { color: '#b45309', bg: '#fffbeb', label: '승인 대기' },
   confirmed:    { color: '#16a34a', bg: '#f0fdf4', label: '확정' },
   cancelled:    { color: '#6b7280', bg: '#f9fafb', label: '취소' },
@@ -20,23 +24,46 @@ function StatCard({ label, value, sub, color }: { label: string; value: string |
 }
 
 export default function DashboardPage() {
-  const { reservations } = useAuth()
-  const allRes = reservations  // 관리자는 전체 예약 볼 수 있음
+  const [loading, setLoading] = useState(true)
+  const [rooms, setRooms] = useState<RoomResponseDto[]>([])
+  const [reservations, setReservations] = useState<ReservationResponse[]>([])
 
-  const pending   = allRes.filter((r) => r.status === 'pending').length
-  const confirmed = allRes.filter((r) => r.status === 'confirmed').length
-  const totalRevenue = allRes.filter((r) => r.status === 'confirmed').reduce((a, r) => a + r.price, 0)
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [roomPage, reservationList] = await Promise.all([
+        roomsApi.listRooms(0, 100),
+        reservationsApi.adminListReservations(),
+      ])
+      setRooms(roomPage.content)
+      setReservations(reservationList)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
-  // 방별 예약 건수
-  const roomCounts = ROOMS.map((room) => ({
+  useEffect(() => { load() }, [load])
+
+  if (loading) {
+    return <div className="flex-1 flex items-center justify-center"><LoadingSpinner size="lg" /></div>
+  }
+
+  const roomName = (roomId: number) => rooms.find((r) => r.id === roomId)?.name ?? `방 #${roomId}`
+
+  const pending      = reservations.filter((r) => r.status === 'PENDING').length
+  const confirmed    = reservations.filter((r) => r.status === 'CONFIRMED').length
+  const paymentDone  = reservations.filter((r) => r.status === 'PAYMENT_DONE').length
+
+  // 방별 확정 예약 건수
+  const roomCounts = rooms.map((room) => ({
     ...room,
-    count: allRes.filter((r) => r.roomId === room.id && r.status === 'confirmed').length,
+    count: reservations.filter((r) => r.roomId === room.id && r.status === 'CONFIRMED').length,
   })).sort((a, b) => b.count - a.count)
 
   const maxCount = Math.max(...roomCounts.map((r) => r.count), 1)
 
   // 최근 예약 (최신 5건)
-  const recent = [...allRes].sort((a, b) => b.id - a.id).slice(0, 5)
+  const recent = [...reservations].sort((a, b) => b.id - a.id).slice(0, 5)
 
   return (
     <div className="flex-1 overflow-auto">
@@ -49,16 +76,10 @@ export default function DashboardPage() {
 
         {/* 핵심 통계 */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <StatCard label="전체 방" value={ROOMS.length} sub="등록된 스터디룸" color="#2d5a9e" bg="#eff6ff" />
+          <StatCard label="전체 방" value={rooms.length} sub="등록된 스터디룸" color="#2d5a9e" bg="#eff6ff" />
           <StatCard label="승인 대기" value={pending} sub="처리 필요" color="#b45309" bg="#fffbeb" />
           <StatCard label="확정 예약" value={confirmed} sub="총 누적" color="#16a34a" bg="#f0fdf4" />
-          <StatCard
-            label="확정 매출 추정"
-            value={totalRevenue.toLocaleString('ko-KR') + '원'}
-            sub="확정 예약 기준"
-            color="#7c3aed"
-            bg="#f5f3ff"
-          />
+          <StatCard label="결제 완료" value={paymentDone} sub="총 누적" color="#7c3aed" bg="#f5f3ff" />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -93,14 +114,14 @@ export default function DashboardPage() {
           <div className="rounded-2xl p-6" style={{ background: '#fff', border: '1px solid #e8edf5', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
             <h2 className="text-sm font-bold text-gray-900 mb-5">예약 상태 분포</h2>
             <div className="grid grid-cols-2 gap-3">
-              {Object.entries(STATUS_COLOR).map(([status, cfg]) => {
-                const count = allRes.filter((r) => r.status === status).length
+              {(Object.entries(STATUS_COLOR) as [ReservationStatus, typeof STATUS_COLOR[ReservationStatus]][]).map(([status, cfg]) => {
+                const count = reservations.filter((r) => toUiStatus(r.status) === status).length
                 return (
                   <div key={status} className="rounded-xl p-4" style={{ background: cfg.bg, border: `1px solid ${cfg.color}22` }}>
                     <div className="text-xs font-medium mb-1" style={{ color: cfg.color }}>{cfg.label}</div>
                     <div className="text-2xl font-bold" style={{ color: cfg.color }}>{count}</div>
                     <div className="text-xs mt-0.5" style={{ color: cfg.color, opacity: 0.7 }}>
-                      {allRes.length ? Math.round((count / allRes.length) * 100) : 0}%
+                      {reservations.length ? Math.round((count / reservations.length) * 100) : 0}%
                     </div>
                   </div>
                 )
@@ -118,27 +139,27 @@ export default function DashboardPage() {
           <table className="w-full">
             <thead>
               <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                {['예약 ID', '방', '신청자', '날짜 / 시간', '금액', '상태'].map((h) => (
+                {['예약 ID', '방', '날짜 / 시간', '상태'].map((h) => (
                   <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {recent.map((r, i) => {
-                const s = STATUS_COLOR[r.status] ?? { color: '#6b7280', bg: '#f9fafb', label: r.status }
+              {recent.length === 0 ? (
+                <tr><td colSpan={4} className="text-center py-10 text-sm text-gray-400">예약 내역이 없습니다</td></tr>
+              ) : recent.map((r, i) => {
+                const s = STATUS_COLOR[toUiStatus(r.status)]
                 return (
                   <tr key={r.id} className="hover:bg-gray-50 transition-colors"
                     style={{ borderBottom: i < recent.length - 1 ? '1px solid #f9fafb' : 'none', background: '#fff' }}>
                     <td className="px-5 py-3.5">
                       <span className="text-xs font-mono font-medium text-gray-500">#{String(r.id).padStart(4, '0')}</span>
                     </td>
-                    <td className="px-5 py-3.5 text-sm font-medium text-gray-900 whitespace-nowrap">{r.roomName}</td>
-                    <td className="px-5 py-3.5 text-sm text-gray-600">{r.userName}</td>
+                    <td className="px-5 py-3.5 text-sm font-medium text-gray-900 whitespace-nowrap">{roomName(r.roomId)}</td>
                     <td className="px-5 py-3.5 text-xs text-gray-600 whitespace-nowrap">
-                      {r.date}<br />
-                      <span className="text-gray-400">{r.startHour}:00–{r.endHour}:00</span>
+                      {r.reservationDate}<br />
+                      <span className="text-gray-400">{r.startTime.slice(11, 16)}–{r.endTime.slice(11, 16)}</span>
                     </td>
-                    <td className="px-5 py-3.5 text-sm font-semibold text-gray-900 whitespace-nowrap">{r.price.toLocaleString()}원</td>
                     <td className="px-5 py-3.5">
                       <span className="px-2.5 py-1 rounded-full text-xs font-semibold" style={{ background: s.bg, color: s.color }}>{s.label}</span>
                     </td>
