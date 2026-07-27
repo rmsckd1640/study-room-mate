@@ -93,4 +93,10 @@ public class Payment {
 		this.failedAt = LocalDateTime.now();
 	}
 
+	public void expire(String reason) {
+		this.status = PaymentStatus.FAILED;
+		this.failureReason = reason;
+		this.failedAt = LocalDateTime.now();
+	}
+
 }

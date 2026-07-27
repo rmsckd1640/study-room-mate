@@ -25,7 +25,7 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 	SELECT CASE WHEN COUNT(r) > 0 THEN true ELSE false END
 	FROM Reservation r
 	WHERE r.room.id = :roomId
-	AND   r.status <> 'CANCELLED'
+	AND   r.status NOT IN ('CANCELLED', 'REJECTED')
 	AND   r.deletedAt IS NULL
 	AND   r.startTime < :endTime
 	AND   r.endTime   > :startTime
@@ -37,6 +37,8 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 			@Param("endTime") LocalDateTime endTime
 	);
 	
+	List<Reservation> findByRoom_IdAndStatusNotInAndDeletedAtIsNull(Long roomId, List<ReservationStatus> excludedStatuses);
+
 	// ADMIN 1. WHERE status = status
 	List<Reservation> findByStatus(ReservationStatus status);
 	

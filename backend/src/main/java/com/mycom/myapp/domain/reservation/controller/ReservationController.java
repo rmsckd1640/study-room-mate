@@ -74,6 +74,12 @@ public class ReservationController {
 		return ResponseEntity.ok(reservationService.availableSlotList());
 	}
 	
+	@Operation(description = "USER : 예약 가능한 스터디룸 시간 대 조회")
+	@GetMapping("/possible/{id}")
+	public ResponseEntity<ResultDto<List<ReservationResponse>>> possibleRoom(@PathVariable("id") Long roomId) {
+		return ResponseEntity.ok(reservationService.possibleSlotList(roomId));
+	}
+	
 	@Operation(description = "USER : 취소로 인해 예약 가능해진 스터디룸 시간대 조회")
 	@GetMapping("/available/{id}")
 	public ResponseEntity<ResultDto<List<ReservationResponse>>> availableRoom(@PathVariable("id") Long roomId) {

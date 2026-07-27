@@ -17,6 +17,10 @@ export function getMyReservationById(id: number): Promise<ReservationResponse[]>
   return apiFetch<ReservationResponse[]>(`/api/reservation/my/${id}`)
 }
 
+export function getOccupiedReservations(roomId: number): Promise<ReservationResponse[]> {
+  return apiFetch<ReservationResponse[]>(`/api/reservation/possible/${roomId}`)
+}
+
 export function getReservationsByStatus(status: ReservationStatus): Promise<ReservationResponse[]> {
   return apiFetch<ReservationResponse[]>('/api/reservation/status', { query: { status } })
 }
