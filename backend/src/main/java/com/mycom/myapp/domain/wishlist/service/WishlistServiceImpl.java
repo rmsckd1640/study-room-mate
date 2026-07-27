@@ -66,4 +66,10 @@ public class WishlistServiceImpl implements WishlistService {
 	public long countByRoomId(Long roomId) {
 		return wishlistRepository.countByRoomId(roomId);
 	}
+
+	@Override
+	public boolean isWishlisted(String username, Long roomId) {
+		Member member = memberRepository.findByUsername(username).orElseThrow(() -> new UserNotFoundException("존재하지 않는 회원입니다."));
+		return wishlistRepository.existsByMember_IdAndRoom_Id(member.getId(), roomId);
+	}
 }
