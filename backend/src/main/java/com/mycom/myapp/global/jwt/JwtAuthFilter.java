@@ -13,6 +13,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.mycom.myapp.domain.member.entity.MemberRole;
 
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,18 +44,23 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         // 헤더에서 순수 토큰 문자열만 추출
         String token = resolveToken(request);
 
-        if (token != null && jwtProvider.isValid(token)) {
-            // 토큰 안에 담겨있던 정보를 꺼내서(DB 조회 없음), 인증 객체를 구성
-            String username = jwtProvider.getUsername(token);
-            MemberRole role = jwtProvider.getRole(token);
+        if (token != null) {
+            try {
+                // 서명 검증 + 파싱을 한 번만 수행하고, 그 결과(Claims)에서 username/role을 꺼내 쓴다
+                Claims claims = jwtProvider.parseClaims(token);
+                String username = jwtProvider.getUsername(claims);
+                MemberRole role = jwtProvider.getRole(claims);
 
-            // Spring Security는 권한 문자열이 "ROLE_" 접두사로 시작해야 hasRole()과 매칭된다
-            List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(username, null, authorities);
+                // Spring Security는 권한 문자열이 "ROLE_" 접두사로 시작해야 hasRole()과 매칭된다
+                List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(username, null, authorities);
 
-            // 이후 @PreAuthorize, requestMatchers 등이 이 값을 보고 인가 여부를 판단한다
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+                // 이후 @PreAuthorize, requestMatchers 등이 이 값을 보고 인가 여부를 판단한다
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            } catch (JwtException | IllegalArgumentException e) {
+                // 토큰이 없거나 유효하지 않음 - 인증 정보 없이 다음 필터로 넘긴다
+            }
         }
 
         // 인증 성공/실패 여부와 상관없이 다음 필터로 넘긴다(권한 판단은 다른 곳에 맡김)
