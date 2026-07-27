@@ -34,9 +34,13 @@ export default function RoomReviewsPage() {
       setReviews(reviewPage.content)
 
       if (!isAdmin && memberId !== null) {
-        const myReservations = await reservationsApi.getMyReservations()
+        // reviewPage.content(최대 100개)를 훑어서 내 리뷰를 찾던 방식은 리뷰가 100개를 넘으면
+        // 오판할 수 있어서, 전용 API(hasReviewed)로 교체했다.
+        const [myReservations, alreadyReviewed] = await Promise.all([
+          reservationsApi.getMyReservations(),
+          reviewsApi.hasReviewed(id),
+        ])
         const hasConfirmed = myReservations.some((r) => r.roomId === id && (r.status === 'CONFIRMED' || r.status === 'PAYMENT_DONE'))
-        const alreadyReviewed = reviewPage.content.some((r) => r.memberId === memberId)
         setCanWrite(hasConfirmed && !alreadyReviewed)
       }
     } catch {

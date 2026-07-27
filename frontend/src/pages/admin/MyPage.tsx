@@ -103,9 +103,11 @@ export default function MyPage() {
       const list = await reviewsApi.getReviewsByMember(memberId)
       const roomCache = new Map<number, RoomResponseDto>()
       const uniqueRoomIds = [...new Set(list.map((r) => r.roomId))]
-      await Promise.all(uniqueRoomIds.map(async (roomId) => {
-        try { roomCache.set(roomId, await roomsApi.getRoom(roomId)) } catch { /* 삭제된 방 */ }
-      }))
+      // 중복 제거된 roomId 목록을 배치 조회 1번으로 가져온다.
+      // (findByIdIn은 삭제된 방 등 없는 id는 조용히 빼고 반환하므로, 기존의 개별 try/catch와 동일한
+      //  효과를 별도 에러 처리 없이 얻는다)
+      const rooms = await roomsApi.getRoomsByIds(uniqueRoomIds)
+      rooms.forEach((room) => roomCache.set(room.id, room))
       setReviews(list.map((review) => ({ review, roomName: roomCache.get(review.roomId)?.name ?? `방 #${review.roomId}` })))
     } catch {
       showToast('리뷰 목록을 불러오지 못했습니다.', 'error')

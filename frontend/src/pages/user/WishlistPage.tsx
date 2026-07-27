@@ -26,19 +26,25 @@ export default function WishlistPage() {
     setLoading(true)
     try {
       const wishlist = await wishlistsApi.getWishlists()
-      const resolved = await Promise.all(
-        wishlist.map(async (w) => {
-          // room 상세 응답(getRoom)에 이미 averageRating/reviewCount가 배치 쿼리로 채워져서 오므로
-          // reviewsApi.getRatingSummary를 별도로 호출할 필요가 없다 (중복 조회 제거)
-          const room = await roomsApi.getRoom(w.roomId)
+      // room 개수만큼 getRoom을 개별 호출하던 것을 배치 조회 1번으로 교체.
+      // (부수 효과: findByIdIn은 없는 id를 조용히 빼고 반환하므로, 방이 하나 삭제됐다고
+      //  Promise.all 전체가 실패하던 예전 문제도 자연스럽게 해결됨)
+      const roomIds = wishlist.map((w) => w.roomId)
+      const rooms = await roomsApi.getRoomsByIds(roomIds)
+      const roomMap = new Map(rooms.map((r) => [r.id, r]))
+
+      const resolved = wishlist
+        .map((w) => {
+          const room = roomMap.get(w.roomId)
+          if (!room) return null // 삭제된 방 등 배치 응답에 없는 경우
           return {
             roomId: w.roomId,
             room,
             avg: room.reviewCount > 0 ? room.averageRating : null,
             reviewCount: room.reviewCount,
           }
-        }),
-      )
+        })
+        .filter((it): it is WishlistRoom => it !== null)
       setItems(resolved)
     } catch {
       showToast('위시리스트를 불러오지 못했습니다.', 'error')
