@@ -96,8 +96,11 @@ export default function PaymentPage() {
     if (!widgets) return
     setRequesting(true)
     try {
-      const successUrl = new URL('#/user/payment/success', window.location.href).toString()
-      const failUrl = new URL('#/user/payment/fail', window.location.href).toString()
+      // 이전 결제의 orderId/paymentKey/amount가 주소창 쿼리스트링에 남아있을 수 있으므로
+      // window.location.href 전체가 아니라 쿼리 없는 origin+pathname을 기준으로 만든다.
+      const baseUrl = `${window.location.origin}${window.location.pathname}`
+      const successUrl = new URL('#/user/payment/success', baseUrl).toString()
+      const failUrl = new URL('#/user/payment/fail', baseUrl).toString()
       await widgets.requestPayment({
         orderId,
         orderName: `${roomName} 예약`,
