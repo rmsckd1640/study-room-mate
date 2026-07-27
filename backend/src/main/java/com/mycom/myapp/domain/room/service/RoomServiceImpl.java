@@ -153,4 +153,14 @@ public class RoomServiceImpl implements RoomService {
 	private Member findMemberOrThrow(String username) {
 		return memberRepository.findByUsername(username).orElseThrow(() -> new UserNotFoundException("존재하지 않는 회원입니다."));
 	}
+
+	@Override
+	public List<RoomResponseDto> getRoomsByIds(String username, List<Long> ids) {
+		Member member = findMemberOrThrow(username);
+		if (ids == null || ids.isEmpty()) {
+			return List.of();
+		}
+		List<Room> rooms = roomRepository.findByIdIn(ids);
+		return buildResponseListWithBatch(rooms, member);
+	}
 }

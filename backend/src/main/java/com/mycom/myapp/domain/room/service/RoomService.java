@@ -23,4 +23,6 @@ public interface RoomService {
 	RoomResponseDto updateRoom(Long roomId, RoomUpdateRequest request);
 
 	void deleteRoom(Long roomId);
+
+	List<RoomResponseDto> getRoomsByIds(String username, List<Long> ids);
 }
