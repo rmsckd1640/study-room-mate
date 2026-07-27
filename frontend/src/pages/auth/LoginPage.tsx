@@ -169,23 +169,10 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                <div className="relative">
-                  <input type="checkbox" className="sr-only peer" />
-                  <div className="w-4 h-4 rounded border-[1.5px] border-gray-300 peer-checked:border-transparent peer-checked:bg-blue-700 transition-all flex items-center justify-center">
-                    <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
-                      <path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </div>
-                </div>
-                <span className="text-sm text-gray-600">로그인 상태 유지</span>
-              </label>
-              <div className="flex items-center gap-2.5 text-xs font-medium" style={{ color: '#2d5a9e' }}>
-                <button type="button" onClick={() => navigate('/find-id')}>아이디 찾기</button>
-                <span style={{ color: '#d1d5db' }}>|</span>
-                <button type="button" onClick={() => navigate('/find-password')}>비밀번호 찾기</button>
-              </div>
+            <div className="flex items-center justify-end gap-2.5 text-xs font-medium" style={{ color: '#2d5a9e' }}>
+              <button type="button" onClick={() => navigate('/find-id')}>아이디 찾기</button>
+              <span style={{ color: '#d1d5db' }}>|</span>
+              <button type="button" onClick={() => navigate('/find-password')}>비밀번호 찾기</button>
             </div>
 
             <button

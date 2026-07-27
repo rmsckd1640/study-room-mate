@@ -3,18 +3,39 @@ import type { LoginResponse, ResultDto } from './types'
 const ACCESS_TOKEN_KEY = 'srm_access_token'
 const REFRESH_TOKEN_KEY = 'srm_refresh_token'
 
+let currentTokenIssuedAt = Date.now()
+
 export const tokenStore = {
   getAccessToken: (): string | null => localStorage.getItem(ACCESS_TOKEN_KEY),
   getRefreshToken: (): string | null => localStorage.getItem(REFRESH_TOKEN_KEY),
   setTokens: (accessToken: string, refreshToken: string) => {
     localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
     localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+    currentTokenIssuedAt = Date.now()
   },
   clear: () => {
     localStorage.removeItem(ACCESS_TOKEN_KEY)
     localStorage.removeItem(REFRESH_TOKEN_KEY)
   },
 }
+
+// API 요청이 마지막으로 성공한 시각. 실제로 서버와 통신해야 "활동"으로 인정한다.
+let lastActivityAt = Date.now()
+
+const CHECK_INTERVAL_MS = 30_000
+const REFRESH_LEAD_TIME_MS = 60_000
+
+// 30초마다 액세스 토큰이 곧 만료되는지 확인하고, 그 사이 실제 API 호출이 있었을 때만 조용히 재발급한다.
+setInterval(async () => {
+  const accessToken = tokenStore.getAccessToken()
+  if (!accessToken) return
+
+  const expiresAt = decodeJwtExpirationMs(accessToken)
+  if (expiresAt === null || expiresAt - Date.now() > REFRESH_LEAD_TIME_MS) return
+  if (lastActivityAt < currentTokenIssuedAt) return // 방치 상태 - 갱신하지 않고 자연 만료에 맡긴다
+
+  await tryReissue()
+}, CHECK_INTERVAL_MS)
 
 export class ApiError extends Error {
   status: number
@@ -115,6 +136,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   const { status, body } = await rawRequest(path, options)
 
   if (status >= 200 && status < 300) {
+    lastActivityAt = Date.now()
     if (body && typeof body === 'object' && 'data' in (body as Record<string, unknown>)) {
       return (body as Record<string, unknown>).data as T
     }
@@ -137,8 +159,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   throw new ApiError(status, message)
 }
 
-/** JWT accessToken payload에서 회원 id로 추정되는 클레임을 순서대로 탐색. */
-export function decodeJwtMemberId(token: string): number | null {
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
     const payloadPart = token.split('.')[1]
     if (!payloadPart) return null
@@ -149,15 +170,29 @@ export function decodeJwtMemberId(token: string): number | null {
         .map((c) => '%' + c.charCodeAt(0).toString(16).padStart(2, '0'))
         .join(''),
     )
-    const payload = JSON.parse(json) as Record<string, unknown>
-    for (const key of ['id', 'memberId', 'sub']) {
-      const value = payload[key]
-      if (value === undefined || value === null) continue
-      const num = Number(value)
-      if (!Number.isNaN(num)) return num
-    }
-    return null
+    return JSON.parse(json) as Record<string, unknown>
   } catch {
     return null
   }
+}
+
+/** JWT accessToken payload에서 회원 id로 추정되는 클레임을 순서대로 탐색. */
+export function decodeJwtMemberId(token: string): number | null {
+  const payload = decodeJwtPayload(token)
+  if (!payload) return null
+  for (const key of ['id', 'memberId', 'sub']) {
+    const value = payload[key]
+    if (value === undefined || value === null) continue
+    const num = Number(value)
+    if (!Number.isNaN(num)) return num
+  }
+  return null
+}
+
+/** JWT payload의 만료 시각(exp, 초 단위) → 밀리초 타임스탬프. */
+function decodeJwtExpirationMs(token: string): number | null {
+  const payload = decodeJwtPayload(token)
+  const exp = payload?.exp
+  if (typeof exp !== 'number') return null
+  return exp * 1000
 }
