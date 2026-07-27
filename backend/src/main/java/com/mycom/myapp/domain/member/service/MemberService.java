@@ -1,6 +1,7 @@
 package com.mycom.myapp.domain.member.service;
 
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import com.mycom.myapp.domain.member.dto.FindUsernameRequest;
 import com.mycom.myapp.domain.member.dto.MemberResponse;
@@ -24,7 +25,7 @@ public interface MemberService {
     String findUsername(FindUsernameRequest request);
 
     // 관리자 전용 - 본인 확인(소유권 검사) 없이 전체/단건 조회, 강제 탈퇴
-    List<MemberResponse> getAllMembers();
+    Page<MemberResponse> getAllMembers(Pageable pageable);
 
     MemberResponse getMember(Long id);
 

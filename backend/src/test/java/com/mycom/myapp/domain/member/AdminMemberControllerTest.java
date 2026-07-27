@@ -1,5 +1,6 @@
 package com.mycom.myapp.domain.member;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -12,6 +13,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -64,13 +67,13 @@ class AdminMemberControllerTest {
     void getAllMembers_성공() throws Exception {
         // given
         MemberResponse response = new MemberResponse(1L, "chang123", "chang@test.com", "창", MemberRole.USER, MemberGrade.BRONZE);
-        given(memberService.getAllMembers()).willReturn(List.of(response));
+        given(memberService.getAllMembers(any(Pageable.class))).willReturn(new PageImpl<>(List.of(response)));
         authenticateAsAdmin();
 
         // when & then
         mockMvc.perform(get("/api/admin/members"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].username").value("chang123"));
+                .andExpect(jsonPath("$.data.content[0].username").value("chang123"));
     }
 
     @Test

@@ -11,6 +11,7 @@ import RoomReviewsPage from './pages/admin/RoomReviewsPage'
 import MyPage from './pages/admin/MyPage'
 import DashboardPage from './pages/admin/DashboardPage'
 import ReservationManagePage from './pages/admin/ReservationManagePage'
+import AdminMembersPage from './pages/admin/AdminMembersPage'
 import ReservePage from './pages/user/ReservePage'
 import PaymentPage from './pages/user/PaymentPage'
 import PaymentSuccessPage from './pages/user/PaymentSuccessPage'
@@ -79,6 +80,8 @@ export const router = createHashRouter([
       { path: 'rooms', Component: AdminRoomsPage },
       { path: 'rooms/:roomId/reviews', Component: RoomReviewsPage },
       { path: 'reservations', Component: ReservationManagePage },
+      { path: 'members', Component: AdminMembersPage },
+      { path: 'mypage', Component: MyPage },
     ],
   },
 ])

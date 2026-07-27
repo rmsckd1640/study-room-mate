@@ -1,7 +1,8 @@
 package com.mycom.myapp.domain.member.controller;
 
-import java.util.List;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -25,12 +26,12 @@ public class AdminMemberController {
 
     private final MemberService memberService;
 
-    @Operation(description = "ADMIN : 전체 회원 조회")
+    @Operation(description = "ADMIN : 전체 회원 페이징 조회")
     @GetMapping
-    public ResponseEntity<ResultDto<List<MemberResponse>>> getAllMembers() {
-        List<MemberResponse> response = memberService.getAllMembers();
+    public ResponseEntity<ResultDto<Page<MemberResponse>>> getAllMembers(@PageableDefault(size = 20) Pageable pageable) {
+        Page<MemberResponse> response = memberService.getAllMembers(pageable);
 
-        ResultDto<List<MemberResponse>> result = ResultDto.<List<MemberResponse>>builder()
+        ResultDto<Page<MemberResponse>> result = ResultDto.<Page<MemberResponse>>builder()
                 .message("조회 성공")
                 .data(response)
                 .build();
