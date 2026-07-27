@@ -2,11 +2,17 @@ package com.mycom.myapp.domain.member.repository;
 
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.mycom.myapp.domain.member.entity.Member;
+import com.mycom.myapp.domain.member.entity.MemberRole;
 
 public interface MemberRepository extends JpaRepository<Member, Long> {
+
+    // 관리자 회원 관리 목록 - 관리자 계정 자신은 제외하고 페이징 조회
+    Page<Member> findByRoleNot(MemberRole role, Pageable pageable);
 
     boolean existsByUsername(String username);
 

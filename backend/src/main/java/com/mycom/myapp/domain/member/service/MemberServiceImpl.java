@@ -1,7 +1,7 @@
 package com.mycom.myapp.domain.member.service;
 
-import java.util.List;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -15,6 +15,7 @@ import com.mycom.myapp.domain.member.dto.PasswordChangeRequest;
 import com.mycom.myapp.domain.member.dto.SignupRequest;
 import com.mycom.myapp.domain.member.dto.WithdrawRequest;
 import com.mycom.myapp.domain.member.entity.Member;
+import com.mycom.myapp.domain.member.entity.MemberRole;
 import com.mycom.myapp.domain.member.repository.MemberRepository;
 import com.mycom.myapp.global.exception.DuplicateEmailException;
 import com.mycom.myapp.global.exception.DuplicateUsernameException;
@@ -122,10 +123,10 @@ public class MemberServiceImpl implements MemberService {
     }
 
     @Override
-    public List<MemberResponse> getAllMembers() {
-        return memberRepository.findAll().stream()
-                .map(MemberResponse::from)
-                .toList();
+    public Page<MemberResponse> getAllMembers(Pageable pageable) {
+        // 관리자 계정 자신은 회원 관리 목록에서 제외
+        return memberRepository.findByRoleNot(MemberRole.ADMIN, pageable)
+                .map(MemberResponse::from);
     }
 
     @Override

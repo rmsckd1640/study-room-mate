@@ -17,6 +17,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -317,17 +321,18 @@ class MemberServiceImplTest {
     }
 
     @Test
-    @DisplayName("관리자는 전체 회원 목록을 조회한다")
+    @DisplayName("관리자는 전체 회원 목록을 페이징 조회한다 (관리자 계정 자신은 제외)")
     void getAllMembers_성공() {
         // given
-        given(memberRepository.findAll()).willReturn(List.of(createMember()));
+        Pageable pageable = PageRequest.of(0, 20);
+        given(memberRepository.findByRoleNot(MemberRole.ADMIN, pageable)).willReturn(new PageImpl<>(List.of(createMember())));
 
         // when
-        List<MemberResponse> response = memberService.getAllMembers();
+        Page<MemberResponse> response = memberService.getAllMembers(pageable);
 
         // then
-        assertThat(response).hasSize(1);
-        assertThat(response.get(0).username()).isEqualTo("chang123");
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().get(0).username()).isEqualTo("chang123");
     }
 
     @Test
