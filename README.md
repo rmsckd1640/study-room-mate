@@ -13,12 +13,11 @@
 
 ### 1. 데이터베이스 생성 및 스키마 적용
 ```bash
-mysql -u root -p -e "CREATE DATABASE studyroommate CHARACTER SET utf8mb4;"
-mysql -u root -p studyroommate < backend/src/main/resources/db/migration/0001_init_schema.up.sql
+mysql -u root -p < docs/schema.sql
 ```
 테스트용 더미 데이터가 필요하면 추가로 적용한다.
 ```bash
-mysql -u root -p studyroommate < backend/src/main/resources/db/migration/0002_sample_data.sql
+mysql -u root -p studyroommate < docs/sample_data.sql
 ```
 
 ### 2. 로컬 환경설정 파일 생성
