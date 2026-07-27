@@ -56,7 +56,7 @@ public class RoomController {
 
 	@Operation(description = "USER : 여러 방을 id 목록으로 한 번에 조회 (찜 목록/예약 내역 등에서 room 정보를 배치로 가져올 때 사용)")
 	@GetMapping("/batch")
-	public ResponseEntity<ResultDto<List<RoomResponseDto>>> getRoomsByIds(@RequestParam List<Long> ids) {
+	public ResponseEntity<ResultDto<List<RoomResponseDto>>> getRoomsByIds(@RequestParam("ids") List<Long> ids) {
 		String username = securityUtils.getCurrentUsername();
 		List<RoomResponseDto> data = roomService.getRoomsByIds(username, ids);
 		return ResponseEntity.ok(ResultDto.<List<RoomResponseDto>>builder().message("조회 성공").data(data).build());

@@ -1,5 +1,6 @@
 package com.mycom.myapp.domain.payment.repository;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -24,5 +25,15 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 	// 세션 없이도 접근할 수 있도록 조회 시점에 JOIN FETCH로 함께 가져온다.
 	@Query("SELECT p FROM Payment p JOIN FETCH p.reservation r JOIN FETCH r.member WHERE p.orderId = :orderId")
 	Optional<Payment> findByOrderIdWithReservationAndMember(@Param("orderId") String orderId);
+
+	@Query(
+	"""
+	SELECT p FROM Payment p JOIN FETCH p.reservation r
+	WHERE p.status = 'READY'
+	AND   r.status = 'PENDING'
+	AND   p.createdAt < :expiredBefore
+	"""
+	)
+	List<Payment> findExpiredReadyPayments(@Param("expiredBefore") LocalDateTime expiredBefore);
 
 }

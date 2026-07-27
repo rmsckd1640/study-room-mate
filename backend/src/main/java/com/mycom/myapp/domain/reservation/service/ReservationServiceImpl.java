@@ -101,6 +101,23 @@ public class ReservationServiceImpl implements ReservationService {
 
 		return resultDto;
 	}
+	
+	public ResultDto<List<ReservationResponse>> possibleSlotList(Long roomId) {
+		ResultDto<List<ReservationResponse>> resultDto = new ResultDto<>();
+
+		List<ReservationResponse> reservations = reservationRepository
+												.findByRoom_IdAndStatusNotInAndDeletedAtIsNull(
+														roomId, 
+														List.of(ReservationStatus.CANCELLED, ReservationStatus.REJECTED)
+												)
+												.stream()
+												.map(Reservation::toResponse)
+												.toList();
+
+		resultDto.setData(reservations);
+
+		return resultDto;
+	}
 
 	public ResultDto<List<ReservationResponse>> myList() {
 		ResultDto<List<ReservationResponse>> resultDto = new ResultDto<>();

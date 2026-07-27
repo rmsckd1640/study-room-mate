@@ -25,4 +25,6 @@ public interface ReservationService {
 
 	ResultDto<List<ReservationResponse>> availableSlotList(Long roomId);
 
+	ResultDto<List<ReservationResponse>> possibleSlotList(Long roomId);
+
 }

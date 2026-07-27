@@ -1,5 +1,6 @@
 package com.mycom.myapp.domain.auth.repository;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,4 +14,7 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
 
     // 재요청/사용 완료 시 기존 토큰 무효화(삭제)
     void deleteByMember_Id(Long memberId);
+
+    // 만료된 뒤에도 삭제되지 않고 남아있는 토큰을 정리하기 위한 배치용 삭제
+    void deleteByExpiryDateBefore(LocalDateTime time);
 }
