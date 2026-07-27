@@ -20,4 +20,4 @@ spring.mail.properties.mail.smtp.auth=true
 spring.mail.properties.mail.smtp.starttls.enable=true
 
 # 비밀번호 재설정 링크에 붙는 프론트 주소
-app.password-reset-url=http://localhost:3000/#/reset-password
+app.password-reset-url=https://rmsckd1640.github.io/study-room-mate/#/reset-password
