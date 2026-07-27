@@ -42,8 +42,8 @@ function StrengthBar({ password }: { password: string }) {
 export default function ResetPasswordPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const tokenFromUrl = searchParams.get('token') ?? ''
-  const [token, setToken]           = useState(tokenFromUrl)
+  // 토큰은 이메일 링크의 쿼리 파라미터에서만 읽어온다 - 사용자가 직접 입력하지 않음
+  const token = searchParams.get('token') ?? ''
   const [password, setPassword]     = useState('')
   const [confirm, setConfirm]       = useState('')
   const [showPw, setShowPw]         = useState(false)
@@ -57,6 +57,22 @@ export default function ResetPasswordPage() {
   const mismatch  = confirm.length > 0 && password !== confirm
   const tooShort  = password.length > 0 && password.length < 8
   const canSubmit = password.length >= 8 && password === confirm && token.trim().length > 0
+
+  if (!token) return (
+    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#f0f4ff' }}>
+      <div className="w-full max-w-[420px]">
+        <div className="rounded-2xl p-8 text-center" style={{ background: '#fff', boxShadow: '0 4px 24px rgba(30,58,95,0.08)', border: '1px solid #e8edf5' }}>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">유효하지 않은 링크입니다</h2>
+          <p className="text-sm text-gray-500 mb-6">비밀번호 재설정을 다시 요청해 주세요.</p>
+          <button onClick={() => navigate('/find-password')}
+            className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
+            style={{ background: 'linear-gradient(135deg, #1e3a5f, #2d5a9e)' }}>
+            재설정 다시 요청하기
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -135,17 +151,6 @@ export default function ResetPasswordPage() {
           )}
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-
-            {/* 재설정 토큰 (이메일 링크로 열었다면 자동 입력됨) */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">재설정 토큰</label>
-              <input
-                type="text" placeholder="이메일로 받은 토큰을 붙여넣으세요" value={token}
-                onChange={(e) => setToken(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl text-sm text-gray-900 placeholder-gray-400 outline-none transition-all"
-                style={{ background: '#fff', border: '1.5px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
-              />
-            </div>
 
             {/* 새 비밀번호 */}
             <div>
