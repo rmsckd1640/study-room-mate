@@ -93,6 +93,10 @@ export interface RoomResponseDto {
   capacity: number
   price: number
   discountedPrice: number
+  wishlisted: boolean
+  wishlistCount: number
+  averageRating: number
+  reviewCount: number
   createdAt: string
 }
 
@@ -125,11 +129,6 @@ export interface ReviewUpdateRequest {
   content?: string
 }
 
-export interface RoomRatingSummaryDto {
-  averageRating: number
-  reviewCount: number
-}
-
 /* ── Wishlist ── */
 export interface WishlistResponseDto {
   id: number
@@ -150,6 +149,7 @@ export interface ReservationResponse {
   id: number
   roomId: number
   orderId: string
+  amount: number
   reservationDate: string
   startTime: string
   endTime: string

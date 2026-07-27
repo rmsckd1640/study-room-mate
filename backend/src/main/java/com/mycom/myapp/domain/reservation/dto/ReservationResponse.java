@@ -18,6 +18,7 @@ public record ReservationResponse(
 	Long id,
 	Long roomId,
 	String orderId,
+	Long amount,
 	LocalDate reservationDate,
 	LocalDateTime startTime,
 	LocalDateTime endTime,

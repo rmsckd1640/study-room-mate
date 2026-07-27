@@ -4,7 +4,6 @@ import { useAuth, GRADE_CONFIG } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 import * as roomsApi from '../../lib/api/rooms'
 import * as wishlistsApi from '../../lib/api/wishlists'
-import * as reviewsApi from '../../lib/api/reviews'
 import * as reservationsApi from '../../lib/api/reservations'
 import { ApiError } from '../../lib/api/client'
 import type { RoomResponseDto } from '../../lib/api/types'
@@ -269,73 +268,113 @@ export default function AdminRoomsPage() {
   const [searchName, setSearchName]     = useState('')
   const [maxPrice, setMaxPrice]         = useState('')
   const [minCapacity, setMinCapacity]   = useState('')
-  const [tagFavorite, setTagFavorite]   = useState(false)
   const [viewMode, setViewMode]         = useState<'list' | 'gallery'>('list')
   const [editRoom, setEditRoom]         = useState<Room | null>(null)
 
-  const loadRooms = useCallback(async () => {
+  // 입력창(searchName/maxPrice/minCapacity)은 타이핑마다 바뀌지만, 실제 서버 요청은 300ms
+  // 디바운스된 값(debouncedName/debouncedPrice/debouncedCapacity)으로만 나간다. 페이지 이동(page)은
+  // 이미 확정된 검색어에 대해 다른 페이지를 요청하는 것이므로 디바운스를 거치지 않고 즉시 반영한다.
+  const [debouncedName, setDebouncedName]         = useState('')
+  const [debouncedPrice, setDebouncedPrice]       = useState('')
+  const [debouncedCapacity, setDebouncedCapacity] = useState('')
+  const [page, setPage]                 = useState(0)             // 0-indexed, 백엔드와 동일
+  const [totalPages, setTotalPages]     = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
+  const PAGE_SIZE = 20 // 백엔드 기본값과 동일하게 고정
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedName(searchName)
+      setDebouncedPrice(maxPrice)
+      setDebouncedCapacity(minCapacity)
+      setPage(0) // 검색어가 바뀌면 항상 첫 페이지부터 다시 봄
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchName, maxPrice, minCapacity])
+
+  const loadRoomList = useCallback(async (name: string, price: string, capacity: string, pageNumber: number) => {
     setLoading(true)
     try {
-      const page = await roomsApi.listRooms(0, 100)
-      const list = page.content
+      // name/capacity/price 전부 백엔드에 그대로 위임한다.
+      // price는 원가(room.price) 기준으로 필터링되며, 등급 할인은 서버 필터링에 반영되지 않는다.
+      const result = await roomsApi.searchRoomsWithPaging({
+        name: name.trim() || undefined,
+        capacity: capacity ? Number(capacity) : undefined,
+        price: price ? Number(price) : undefined,
+        page: pageNumber,
+        size: PAGE_SIZE,
+      })
+      const list = result.content
       setRooms(list)
+      setTotalPages(result.totalPages)
+      setTotalElements(result.totalElements)
 
-      const [counts, summaries] = await Promise.all([
-        Promise.all(list.map((r) => wishlistsApi.countWishlistByRoom(r.id).catch(() => 0))),
-        Promise.all(list.map((r) => reviewsApi.getRatingSummary(r.id).catch(() => ({ averageRating: 0, reviewCount: 0 })))),
-      ])
+      // room 목록 응답에 이미 room별 wishlistCount/averageRating/reviewCount가
+      // 배치 쿼리로 채워져서 오기 때문에, room마다 별도 API를 호출할 필요가 없다.
       const nextCounts: Record<number, number> = {}
       const nextRatings: Record<number, { avg: number | null; count: number }> = {}
-      list.forEach((r, i) => {
-        nextCounts[r.id] = counts[i]
-        nextRatings[r.id] = summaries[i].reviewCount > 0 ? { avg: summaries[i].averageRating, count: summaries[i].reviewCount } : { avg: null, count: 0 }
+      list.forEach((r) => {
+        nextCounts[r.id] = r.wishlistCount
+        nextRatings[r.id] = r.reviewCount > 0 ? { avg: r.averageRating, count: r.reviewCount } : { avg: null, count: 0 }
       })
       setFavCounts(nextCounts)
       setRatings(nextRatings)
-
-      if (!isAdmin) {
-        const [wishlist, myReservations] = await Promise.all([
-          wishlistsApi.getWishlists(),
-          reservationsApi.getMyReservations(),
-        ])
-        const nextFavMap: Record<number, number> = {}
-        wishlist.forEach((w) => { nextFavMap[w.roomId] = w.id })
-        setFavoriteMap(nextFavMap)
-
-        const myRooms = new Set(myReservations.map((r) => r.roomId))
-        setMyRoomIds(myRooms)
-        setReviewableRoomIds(new Set(myReservations.filter((r) => r.status === 'CONFIRMED' || r.status === 'PAYMENT_DONE').map((r) => r.roomId)))
-      }
     } catch {
       showToast('스터디룸 목록을 불러오지 못했습니다.', 'error')
     } finally {
       setLoading(false)
     }
+  }, [showToast])
+
+  // 찜 목록/내 예약 정보는 검색어와 무관하게 화면 진입 시 한 번만 필요하므로,
+  // room 목록 검색(loadRoomList)과 분리해서 별도로 로드한다.
+  const loadUserExtras = useCallback(async () => {
+    if (isAdmin) return
+    try {
+      const [wishlist, myReservations] = await Promise.all([
+        wishlistsApi.getWishlists(),
+        reservationsApi.getMyReservations(),
+      ])
+      // DELETE /api/wishlists/{roomId} 는 wishlist 자체의 id가 아니라 roomId를 받으므로,
+      // wishlist의 PK(w.id)가 아니라 roomId를 값으로 저장한다.
+      const nextFavMap: Record<number, number> = {}
+      wishlist.forEach((w) => { nextFavMap[w.roomId] = w.roomId })
+      setFavoriteMap(nextFavMap)
+
+      const myRooms = new Set(myReservations.map((r) => r.roomId))
+      setMyRoomIds(myRooms)
+      setReviewableRoomIds(new Set(myReservations.filter((r) => r.status === 'CONFIRMED' || r.status === 'PAYMENT_DONE').map((r) => r.roomId)))
+    } catch {
+      showToast('찜/예약 정보를 불러오지 못했습니다.', 'error')
+    }
   }, [isAdmin, showToast])
 
-  useEffect(() => { loadRooms() }, [loadRooms])
+  // 화면 진입 시 1회만 로드 (검색어와 무관)
+  useEffect(() => { loadUserExtras() }, [loadUserExtras])
+
+  // 검색어는 위 effect에서 이미 디바운스됐으므로, 여기서는 추가 지연 없이 즉시 조회한다.
+  // (검색어 변경 시 debounced* 값들이 바뀌면서 page도 0으로 리셋되고,
+  //  페이지네이션 버튼 클릭 시에는 page만 바뀌므로 역시 이 effect가 즉시 재조회한다.)
+  useEffect(() => {
+    loadRoomList(debouncedName, debouncedPrice, debouncedCapacity, page)
+  }, [debouncedName, debouncedPrice, debouncedCapacity, page, loadRoomList])
 
   const discountRate = grade ? GRADE_CONFIG[grade].discount : 0
 
-  const filtered = rooms.filter((r) => {
-    if (searchName && !r.name.includes(searchName)) return false
-    if (tagFavorite && favoriteMap[r.id] === undefined) return false
-    const effectivePrice = r.discountedPrice ?? r.price
-    if (maxPrice && effectivePrice > Number(maxPrice)) return false
-    if (minCapacity && r.capacity < Number(minCapacity)) return false
-    return true
-  })
+  // name/capacity/price 전부 이미 loadRoomList에서 서버 검색으로 걸러졌으므로,
+  // 화면에는 rooms를 그대로 사용한다 (별도 클라이언트 필터 없음).
 
   const toggleFavorite = async (room: Room) => {
-    const existingId = favoriteMap[room.id]
+    const isFavorited = favoriteMap[room.id] !== undefined
     try {
-      if (existingId !== undefined) {
-        await wishlistsApi.removeWishlist(existingId)
+      if (isFavorited) {
+        // DELETE /api/wishlists/{roomId} - roomId를 그대로 넘긴다 (wishlist 자체 id 아님)
+        await wishlistsApi.removeWishlist(room.id)
         setFavoriteMap((m) => { const next = { ...m }; delete next[room.id]; return next })
         setFavCounts((c) => ({ ...c, [room.id]: Math.max(0, (c[room.id] ?? 1) - 1) }))
       } else {
-        const created = await wishlistsApi.addWishlist({ roomId: room.id })
-        setFavoriteMap((m) => ({ ...m, [room.id]: created.id }))
+        await wishlistsApi.addWishlist({ roomId: room.id })
+        setFavoriteMap((m) => ({ ...m, [room.id]: room.id }))
         setFavCounts((c) => ({ ...c, [room.id]: (c[room.id] ?? 0) + 1 }))
       }
     } catch {
@@ -409,7 +448,7 @@ export default function AdminRoomsPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900" style={{ letterSpacing: '-0.02em' }}>스터디룸 목록</h1>
-            <p className="text-sm text-gray-500 mt-1">전체 {rooms.length}개의 방</p>
+            <p className="text-sm text-gray-500 mt-1">전체 {totalElements}개의 방</p>
           </div>
           <div className="flex items-center gap-2">
             {/* 갤러리/리스트 토글 */}
@@ -457,9 +496,9 @@ export default function AdminRoomsPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           {[
-            { label: '전체', value: rooms.length, color: '#2d5a9e', bg: '#eff6ff' },
+            { label: '전체', value: totalElements, color: '#2d5a9e', bg: '#eff6ff' },
             { label: '즐겨찾기', value: Object.keys(favoriteMap).length, color: '#b45309', bg: '#fffbeb' },
-            { label: '검색 결과', value: filtered.length, color: '#16a34a', bg: '#f0fdf4' },
+            { label: '이 페이지 표시', value: rooms.length, color: '#16a34a', bg: '#f0fdf4' },
           ].map((s) => (
             <div key={s.label} className="rounded-2xl p-5" style={{ background: '#ffffff', border: '1px solid #e8edf5', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
               <div className="text-xs font-medium text-gray-500 mb-1">{s.label}</div>
@@ -494,35 +533,21 @@ export default function AdminRoomsPage() {
                 style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0' }} />
             </div>
           </div>
-
-          {!isAdmin && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-gray-400 mr-1">필터</span>
-              <button onClick={() => setTagFavorite((v) => !v)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
-                style={{ background: tagFavorite ? '#fffbeb' : '#f8fafc', color: tagFavorite ? '#b45309' : '#64748b', border: `1.5px solid ${tagFavorite ? '#fde68a' : '#e2e8f0'}` }}>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill={tagFavorite ? '#f59e0b' : 'none'} stroke={tagFavorite ? '#f59e0b' : 'currentColor'} strokeWidth="2" strokeLinecap="round">
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                </svg>
-                즐겨찾기
-              </button>
-            </div>
-          )}
         </div>
 
         {/* ─── 갤러리 뷰 ─── */}
         {viewMode === 'gallery' ? (
-          filtered.length === 0
+          rooms.length === 0
             ? <div className="text-center py-16 text-sm text-gray-400">검색 결과가 없습니다</div>
-            : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">{filtered.map((room) => <RoomCard key={room.id} {...rowProps(room)} />)}</div>
+            : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">{rooms.map((room) => <RoomCard key={room.id} {...rowProps(room)} />)}</div>
         ) : (
         /* ─── 리스트 뷰 ─── */
         <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #e8edf5', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
           {/* 모바일: 카드 스택 */}
           <div className="md:hidden">
-            {filtered.length === 0
+            {rooms.length === 0
               ? <div className="text-center py-16 text-sm text-gray-400">검색 결과가 없습니다</div>
-              : <div className="p-3 flex flex-col gap-3">{filtered.map((room) => <RoomCard key={room.id} {...rowProps(room)} />)}</div>
+              : <div className="p-3 flex flex-col gap-3">{rooms.map((room) => <RoomCard key={room.id} {...rowProps(room)} />)}</div>
             }
           </div>
           {/* 데스크톱: 테이블 */}
@@ -536,14 +561,14 @@ export default function AdminRoomsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
+                {rooms.length === 0 ? (
                   <tr><td colSpan={5} className="text-center py-16 text-sm text-gray-400">검색 결과가 없습니다</td></tr>
-                ) : filtered.map((room, i) => {
+                ) : rooms.map((room, i) => {
                   const p  = rowProps(room)
                   const dp = p.dp
                   return (
                     <tr key={room.id} className="transition-colors"
-                      style={{ borderBottom: i < filtered.length - 1 ? '1px solid #f1f5f9' : 'none', background: p.isMyRoom ? '#f0f9ff' : '#fff' }}>
+                      style={{ borderBottom: i < rooms.length - 1 ? '1px solid #f1f5f9' : 'none', background: p.isMyRoom ? '#f0f9ff' : '#fff' }}>
                       {/* 즐겨찾기 */}
                       <td className="pl-4 pr-1 py-4">
                         <div className="flex flex-col items-center gap-0.5">
@@ -628,9 +653,32 @@ export default function AdminRoomsPage() {
             </table>
           </div>
           <div className="px-5 py-3 flex items-center justify-between" style={{ background: '#f8fafc', borderTop: '1px solid #e8edf5' }}>
-            <span className="text-xs text-gray-400">{filtered.length}개 표시 중 (전체 {rooms.length}개)</span>
+            <span className="text-xs text-gray-400">이 페이지 {rooms.length}개 (전체 {totalElements}개)</span>
           </div>
         </div>
+        )}
+
+        {/* 페이지네이션 - 리스트/갤러리 뷰 공통 (백엔드 기본 size=20 기준) */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-1.5 mt-5">
+            <button
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ border: '1px solid #e2e8f0', color: '#475569' }}>
+              이전
+            </button>
+            <span className="text-xs text-gray-500 px-2">
+              {page + 1} / {totalPages} 페이지
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page >= totalPages - 1}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ border: '1px solid #e2e8f0', color: '#475569' }}>
+              다음
+            </button>
+          </div>
         )}
       </div>
     </div>

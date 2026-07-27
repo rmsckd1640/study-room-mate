@@ -1,5 +1,6 @@
 package com.mycom.myapp.domain.room.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,4 +17,5 @@ public interface RoomRepository extends JpaRepository<Room, Long>, RoomRepositor
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("SELECT r FROM Room r WHERE r.id = :roomId")
 	Optional<Room> findByIdForUpdate(@Param("roomId") Long roomId);
+	List<Room> findByIdIn(List<Long> ids);
 }

@@ -35,7 +35,7 @@ public class TossPaymentServiceImpl implements TossPaymentService {
 	private final PlatformTransactionManager transactionManager;
 
 	public TossPaymentResponse confirm(TossConfirmRequest request) {
-		Payment payment = paymentRepository.findByOrderId(request.orderId())
+		Payment payment = paymentRepository.findByOrderIdWithReservationAndMember(request.orderId())
 				.orElseThrow(() -> new PaymentNotFoundException("결제 정보를 찾을 수 없습니다."));
 
 		String username = securityUtils.getCurrentUsername();

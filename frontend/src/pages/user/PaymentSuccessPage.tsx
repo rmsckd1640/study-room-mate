@@ -1,18 +1,21 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router'
+import { useNavigate } from 'react-router'
 import * as paymentApi from '../../lib/api/payment'
 import { ApiError } from '../../lib/api/client'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 
 export default function PaymentSuccessPage() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
 
   const [status, setStatus] = useState<'confirming' | 'done' | 'error'>('confirming')
   const [errorMessage, setErrorMessage] = useState('')
   const [amount, setAmount] = useState(0)
 
   useEffect(() => {
+    // Toss가 붙이는 orderId/paymentKey/amount는 해시(#) 앞의 진짜 쿼리스트링에 온다.
+    // 해시라우터에서는 react-router의 useSearchParams()가 해시 안쪽 쿼리만 보기 때문에
+    // 여기선 window.location.search를 직접 읽어야 한다.
+    const searchParams = new URLSearchParams(window.location.search)
     const paymentKey = searchParams.get('paymentKey')
     const orderId = searchParams.get('orderId')
     const amountParam = searchParams.get('amount')
@@ -33,7 +36,8 @@ export default function PaymentSuccessPage() {
         setStatus('error')
         setErrorMessage(err instanceof ApiError ? err.message : '결제 승인에 실패했습니다.')
       })
-  }, [searchParams])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   if (status === 'confirming') {
     return (

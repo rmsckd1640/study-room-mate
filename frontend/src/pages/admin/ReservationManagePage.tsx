@@ -8,10 +8,10 @@ import { toUiStatus, type ReservationStatus } from '../../lib/reservationStatus'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 
 const STATUS_CFG: Record<ReservationStatus, { label: string; color: string; bg: string }> = {
-  pending:      { label: '승인 대기', color: '#b45309', bg: '#fffbeb' },
+  pending:      { label: '결제 대기', color: '#b45309', bg: '#fffbeb' },
   confirmed:    { label: '확정',     color: '#16a34a', bg: '#f0fdf4' },
   cancelled:    { label: '취소',     color: '#6b7280', bg: '#f9fafb' },
-  payment_done: { label: '결제 완료', color: '#7c3aed', bg: '#f5f3ff' },
+  payment_done: { label: '승인 대기', color: '#7c3aed', bg: '#f5f3ff' },
   rejected:     { label: '거절',     color: '#dc2626', bg: '#fef2f2' },
 }
 
@@ -49,7 +49,9 @@ export default function ReservationManagePage() {
     return true
   })
 
-  const pendingCount = reservations.filter((r) => r.status === 'PENDING').length
+  // 승인/거절은 결제까지 끝난(PAYMENT_DONE) 예약만 가능하다 (백엔드 ReservationAdminServiceImpl 규칙과 동일).
+  // PENDING은 아직 결제 대기 중이라 관리자가 액션을 취할 대상이 아니다.
+  const actionNeededCount = reservations.filter((r) => r.status === 'PAYMENT_DONE').length
 
   const handleApprove = async (id: number) => {
     try {
@@ -84,9 +86,9 @@ export default function ReservationManagePage() {
             <h1 className="text-2xl font-bold text-gray-900" style={{ letterSpacing: '-0.02em' }}>예약 관리</h1>
             <p className="text-sm text-gray-500 mt-1">
               전체 {reservations.length}건
-              {pendingCount > 0 && (
+              {actionNeededCount > 0 && (
                 <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: '#fffbeb', color: '#b45309' }}>
-                  승인 대기 {pendingCount}건
+                  승인 대기 {actionNeededCount}건
                 </span>
               )}
             </p>
@@ -144,7 +146,7 @@ export default function ReservationManagePage() {
                     const s = STATUS_CFG[toUiStatus(r.status)]
                     return (
                       <tr key={r.id} className="hover:bg-gray-50 transition-colors"
-                        style={{ borderBottom: i < filtered.length - 1 ? '1px solid #f1f5f9' : 'none', background: r.status === 'PENDING' ? '#fffcf0' : '#fff' }}>
+                        style={{ borderBottom: i < filtered.length - 1 ? '1px solid #f1f5f9' : 'none', background: r.status === 'PAYMENT_DONE' ? '#fffcf0' : '#fff' }}>
                         <td className="px-5 py-4">
                           <span className="text-xs font-mono font-semibold text-gray-500">#{String(r.id).padStart(4, '0')}</span>
                         </td>
@@ -156,7 +158,7 @@ export default function ReservationManagePage() {
                             style={{ background: s.bg, color: s.color }}>{s.label}</span>
                         </td>
                         <td className="px-5 py-4">
-                          {r.status === 'PENDING' ? (
+                          {r.status === 'PAYMENT_DONE' ? (
                             <div className="flex gap-1.5">
                               <button onClick={() => handleApprove(r.id)}
                                 className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-90 whitespace-nowrap"

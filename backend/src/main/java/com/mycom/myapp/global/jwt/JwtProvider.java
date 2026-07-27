@@ -60,7 +60,7 @@ public class JwtProvider {
     }
 
     public String getUsername(String token) {
-        return parseClaims(token).getSubject();
+        return getUsername(parseClaims(token));
     }
 
     public Long getMemberId(String token) {
@@ -68,7 +68,7 @@ public class JwtProvider {
     }
 
     public MemberRole getRole(String token) {
-        return MemberRole.valueOf(parseClaims(token).get("role", String.class));
+        return getRole(parseClaims(token));
     }
 
     public LocalDateTime getExpiration(String token) {
@@ -85,7 +85,17 @@ public class JwtProvider {
         }
     }
 
-    private Claims parseClaims(String token) {
+    // 이미 파싱해둔 Claims에서 값만 뽑아 쓰는 용도 - 같은 토큰을 여러 번 파싱/서명검증하지 않기 위함 (JwtAuthFilter에서 사용)
+    public String getUsername(Claims claims) {
+        return claims.getSubject();
+    }
+
+    public MemberRole getRole(Claims claims) {
+        return MemberRole.valueOf(claims.get("role", String.class));
+    }
+
+    // 서명 검증 + JSON 파싱을 한 번에 수행 - 호출부에서 결과(Claims)를 재사용해서 중복 파싱을 피할 수 있도록 public
+    public Claims parseClaims(String token) {
         return Jwts.parser()
                 .verifyWith(key)
                 .build()

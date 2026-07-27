@@ -6,10 +6,10 @@ import { toUiStatus, type ReservationStatus } from '../../lib/reservationStatus'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 
 const STATUS_COLOR: Record<ReservationStatus, { color: string; bg: string; label: string }> = {
-  pending:      { color: '#b45309', bg: '#fffbeb', label: '승인 대기' },
+  pending:      { color: '#b45309', bg: '#fffbeb', label: '결제 대기' },
   confirmed:    { color: '#16a34a', bg: '#f0fdf4', label: '확정' },
   cancelled:    { color: '#6b7280', bg: '#f9fafb', label: '취소' },
-  payment_done: { color: '#7c3aed', bg: '#f5f3ff', label: '결제 완료' },
+  payment_done: { color: '#7c3aed', bg: '#f5f3ff', label: '승인 대기' },
   rejected:     { color: '#dc2626', bg: '#fef2f2', label: '거절' },
 }
 
@@ -77,9 +77,9 @@ export default function DashboardPage() {
         {/* 핵심 통계 */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <StatCard label="전체 방" value={rooms.length} sub="등록된 스터디룸" color="#2d5a9e" bg="#eff6ff" />
-          <StatCard label="승인 대기" value={pending} sub="처리 필요" color="#b45309" bg="#fffbeb" />
+          <StatCard label="결제 대기" value={pending} sub="사용자 결제 대기중" color="#b45309" bg="#fffbeb" />
           <StatCard label="확정 예약" value={confirmed} sub="총 누적" color="#16a34a" bg="#f0fdf4" />
-          <StatCard label="결제 완료" value={paymentDone} sub="총 누적" color="#7c3aed" bg="#f5f3ff" />
+          <StatCard label="승인 대기" value={paymentDone} sub="처리 필요" color="#7c3aed" bg="#f5f3ff" />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">

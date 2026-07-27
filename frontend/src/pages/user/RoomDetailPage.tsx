@@ -21,29 +21,26 @@ export default function RoomDetailPage() {
   const [loading, setLoading]   = useState(true)
   const [room, setRoom]         = useState<RoomResponseDto | null>(null)
   const [reviews, setReviews]   = useState<ReviewResponseDto[]>([])
-  const [favId, setFavId]       = useState<number | null>(null)
+  const [isFavorited, setIsFavorited] = useState(false)
   const [favCount, setFavCount] = useState(0)
   const [hasConfirmed, setHasConfirmed] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [roomData, reviewPage, count] = await Promise.all([
+      // room 상세 응답(getRoom)에 이미 이 사용자의 찜 여부(wishlisted)와 찜 개수(wishlistCount)가
+      // 배치 쿼리로 채워져서 오므로, countWishlistByRoom/getWishlists를 별도로 호출할 필요가 없다.
+      const [roomData, reviewPage] = await Promise.all([
         roomsApi.getRoom(id),
         reviewsApi.getReviewsByRoom(id, 0, 3),
-        wishlistsApi.countWishlistByRoom(id),
       ])
       setRoom(roomData)
       setReviews(reviewPage.content)
-      setFavCount(count)
+      setFavCount(roomData.wishlistCount)
+      setIsFavorited(roomData.wishlisted)
 
       if (!isAdmin) {
-        const [wishlist, myReservations] = await Promise.all([
-          wishlistsApi.getWishlists(),
-          reservationsApi.getMyReservations(),
-        ])
-        const mine = wishlist.find((w) => w.roomId === id)
-        setFavId(mine ? mine.id : null)
+        const myReservations = await reservationsApi.getMyReservations()
         setHasConfirmed(myReservations.some((r) => r.roomId === id && (r.status === 'CONFIRMED' || r.status === 'PAYMENT_DONE')))
       }
     } catch {
@@ -57,13 +54,14 @@ export default function RoomDetailPage() {
 
   const toggleFavorite = async () => {
     try {
-      if (favId !== null) {
-        await wishlistsApi.removeWishlist(favId)
-        setFavId(null)
+      if (isFavorited) {
+        // DELETE /api/wishlists/{roomId} - roomId(id)를 그대로 넘긴다 (wishlist 자체 id 아님)
+        await wishlistsApi.removeWishlist(id)
+        setIsFavorited(false)
         setFavCount((c) => Math.max(0, c - 1))
       } else {
-        const created = await wishlistsApi.addWishlist({ roomId: id })
-        setFavId(created.id)
+        await wishlistsApi.addWishlist({ roomId: id })
+        setIsFavorited(true)
         setFavCount((c) => c + 1)
       }
     } catch {
@@ -125,11 +123,11 @@ export default function RoomDetailPage() {
               <div className="flex flex-col items-center gap-0.5 shrink-0">
                 <button onClick={toggleFavorite} className="p-2 rounded-xl hover:bg-gray-50 transition-all hover:scale-110">
                   <svg width="22" height="22" viewBox="0 0 24 24"
-                    fill={favId !== null ? '#f59e0b' : 'none'} stroke={favId !== null ? '#f59e0b' : '#cbd5e1'} strokeWidth="2" strokeLinecap="round">
+                    fill={isFavorited ? '#f59e0b' : 'none'} stroke={isFavorited ? '#f59e0b' : '#cbd5e1'} strokeWidth="2" strokeLinecap="round">
                     <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                   </svg>
                 </button>
-                <span className="text-[10px] font-semibold tabular-nums" style={{ color: favId !== null ? '#b45309' : '#94a3b8' }}>{favCount}</span>
+                <span className="text-[10px] font-semibold tabular-nums" style={{ color: isFavorited ? '#b45309' : '#94a3b8' }}>{favCount}</span>
               </div>
             )}
           </div>

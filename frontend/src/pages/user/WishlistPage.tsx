@@ -3,14 +3,13 @@ import { useNavigate } from 'react-router'
 import { useToast } from '../../context/ToastContext'
 import * as wishlistsApi from '../../lib/api/wishlists'
 import * as roomsApi from '../../lib/api/rooms'
-import * as reviewsApi from '../../lib/api/reviews'
 import type { RoomResponseDto } from '../../lib/api/types'
 import { StarRating } from '../../components/rooms/StarRating'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 
 interface WishlistRoom {
-  wishlistId: number
+  roomId: number
   room: RoomResponseDto
   avg: number | null
   reviewCount: number
@@ -27,20 +26,25 @@ export default function WishlistPage() {
     setLoading(true)
     try {
       const wishlist = await wishlistsApi.getWishlists()
-      const resolved = await Promise.all(
-        wishlist.map(async (w) => {
-          const [room, summary] = await Promise.all([
-            roomsApi.getRoom(w.roomId),
-            reviewsApi.getRatingSummary(w.roomId).catch(() => ({ averageRating: 0, reviewCount: 0 })),
-          ])
+      // room 개수만큼 getRoom을 개별 호출하던 것을 배치 조회 1번으로 교체.
+      // (부수 효과: findByIdIn은 없는 id를 조용히 빼고 반환하므로, 방이 하나 삭제됐다고
+      //  Promise.all 전체가 실패하던 예전 문제도 자연스럽게 해결됨)
+      const roomIds = wishlist.map((w) => w.roomId)
+      const rooms = await roomsApi.getRoomsByIds(roomIds)
+      const roomMap = new Map(rooms.map((r) => [r.id, r]))
+
+      const resolved = wishlist
+        .map((w) => {
+          const room = roomMap.get(w.roomId)
+          if (!room) return null // 삭제된 방 등 배치 응답에 없는 경우
           return {
-            wishlistId: w.id,
+            roomId: w.roomId,
             room,
-            avg: summary.reviewCount > 0 ? summary.averageRating : null,
-            reviewCount: summary.reviewCount,
+            avg: room.reviewCount > 0 ? room.averageRating : null,
+            reviewCount: room.reviewCount,
           }
-        }),
-      )
+        })
+        .filter((it): it is WishlistRoom => it !== null)
       setItems(resolved)
     } catch {
       showToast('위시리스트를 불러오지 못했습니다.', 'error')
@@ -51,10 +55,11 @@ export default function WishlistPage() {
 
   useEffect(() => { load() }, [load])
 
-  const removeFavorite = async (wishlistId: number) => {
+  const removeFavorite = async (roomId: number) => {
     try {
-      await wishlistsApi.removeWishlist(wishlistId)
-      setItems((prev) => prev.filter((it) => it.wishlistId !== wishlistId))
+      // DELETE /api/wishlists/{roomId} - roomId를 그대로 넘긴다 (wishlist 자체 id 아님)
+      await wishlistsApi.removeWishlist(roomId)
+      setItems((prev) => prev.filter((it) => it.roomId !== roomId))
     } catch {
       showToast('제거에 실패했습니다.', 'error')
     }
@@ -87,10 +92,10 @@ export default function WishlistPage() {
           />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {items.map(({ wishlistId, room, avg, reviewCount }) => {
+            {items.map(({ roomId, room, avg, reviewCount }) => {
               const dp = room.discountedPrice < room.price ? room.discountedPrice : null
               return (
-                <div key={wishlistId} className="rounded-2xl overflow-hidden flex flex-col"
+                <div key={roomId} className="rounded-2xl overflow-hidden flex flex-col"
                   style={{ background: '#fff', border: '1.5px solid #e8edf5', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
 
                   {/* 상단 */}
@@ -107,7 +112,7 @@ export default function WishlistPage() {
                       </div>
                     </div>
                     {/* 찜 제거 */}
-                    <button onClick={() => removeFavorite(wishlistId)}
+                    <button onClick={() => removeFavorite(roomId)}
                       className="p-1.5 rounded-lg hover:bg-red-50 transition-colors shrink-0" title="위시리스트에서 제거">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="#f59e0b" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round">
                         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />

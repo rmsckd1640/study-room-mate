@@ -3,6 +3,7 @@ package com.mycom.myapp.global.mail;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,8 @@ public class MailService {
     private String passwordResetUrl;
 
     // 비밀번호 재설정 링크(토큰 포함)가 담긴 메일을 발송
+    // SMTP 통신 중 호출 스레드가 DB 트랜잭션의 커넥션을 계속 물고 있지 않도록 별도 스레드에서 실행
+    @Async
     public void sendPasswordResetEmail(String to, String token) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(to);

@@ -1,9 +1,11 @@
-import { useNavigate, useSearchParams } from 'react-router'
+import { useNavigate } from 'react-router'
 
 export default function PaymentFailPage() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
 
+  // Toss가 붙이는 code/message는 해시(#) 앞의 진짜 쿼리스트링에 온다. 해시라우터의
+  // useSearchParams()는 해시 안쪽 쿼리만 보기 때문에 window.location.search를 직접 읽는다.
+  const searchParams = new URLSearchParams(window.location.search)
   const code = searchParams.get('code')
   const message = searchParams.get('message') ?? '결제가 취소되었거나 실패했습니다.'
 
