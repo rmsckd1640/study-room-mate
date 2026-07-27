@@ -66,8 +66,6 @@ CREATE TABLE `wishlist` (
   `member_id` bigint NOT NULL,
   `room_id` bigint NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT NULL,
-  `deleted_at` timestamp NULL DEFAULT NULL COMMENT '폐쇄 시 soft delete',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_wishlist_member_room` (`member_id`,`room_id`),
   KEY `wishlist_index_3` (`member_id`),

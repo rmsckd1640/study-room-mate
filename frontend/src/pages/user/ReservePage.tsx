@@ -5,7 +5,7 @@ import { useToast } from '../../context/ToastContext'
 import * as roomsApi from '../../lib/api/rooms'
 import * as reservationsApi from '../../lib/api/reservations'
 import { ApiError } from '../../lib/api/client'
-import type { RoomResponseDto } from '../../lib/api/types'
+import type { ReservationResponse, RoomResponseDto } from '../../lib/api/types'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 
 /* ─── 달력 ────────────────────────────────────────────────── */
@@ -86,6 +86,7 @@ export default function ReservePage() {
   const [room, setRoom] = useState<RoomResponseDto | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [occupiedReservations, setOccupiedReservations] = useState<ReservationResponse[]>([])
 
   const [step, setStep]               = useState<1 | 2>(1)
   const [date, setDate]               = useState('')
@@ -94,7 +95,12 @@ export default function ReservePage() {
   const loadRoom = useCallback(async () => {
     setLoading(true)
     try {
-      setRoom(await roomsApi.getRoom(id))
+      const [roomData, occupied] = await Promise.all([
+        roomsApi.getRoom(id),
+        reservationsApi.getOccupiedReservations(id),
+      ])
+      setRoom(roomData)
+      setOccupiedReservations(occupied)
     } catch {
       setRoom(null)
     } finally {
@@ -116,9 +122,16 @@ export default function ReservePage() {
   const todayStr = now.toISOString().slice(0, 10)
   const isPastHour = (h: number) => date === todayStr && h <= now.getHours()
 
+  const isOccupiedHour = (h: number) => occupiedReservations.some((r) => {
+    if (r.reservationDate !== date) return false
+    const startHour = Number(r.startTime.slice(11, 13))
+    const endHour   = Number(r.endTime.slice(11, 13))
+    return h >= startHour && h < endHour
+  })
+
   const discount    = room.price > 0 ? 1 - room.discountedPrice / room.price : 0
   const toggleSlot = (h: number) => {
-    if (isPastHour(h)) return
+    if (isPastHour(h) || isOccupiedHour(h)) return
     setSelectedHours((prev) => {
       const next = new Set(prev)
       next.has(h) ? next.delete(h) : next.add(h)
@@ -246,15 +259,17 @@ export default function ReservePage() {
                       {SLOT_HOURS.map((h) => {
                         const sel = selectedHours.has(h)
                         const past = isPastHour(h)
+                        const occupied = isOccupiedHour(h)
+                        const blocked = past || occupied
                         return (
-                          <button key={h} disabled={past} onClick={() => toggleSlot(h)}
+                          <button key={h} disabled={blocked} onClick={() => toggleSlot(h)}
                             className="py-2 px-1 rounded-xl text-xs font-semibold transition-all"
                             style={{
-                              background: sel ? 'linear-gradient(135deg, #1e3a5f, #2d5a9e)' : past ? '#f1f5f9' : '#f8fafc',
-                              color: sel ? '#fff' : past ? '#cbd5e1' : '#374151',
-                              border: sel ? '1.5px solid #1e3a5f' : past ? '1.5px solid #e5e7eb' : '1.5px solid #e2e8f0',
-                              cursor: past ? 'not-allowed' : 'pointer',
-                              textDecoration: past ? 'line-through' : 'none',
+                              background: sel ? 'linear-gradient(135deg, #1e3a5f, #2d5a9e)' : occupied ? '#fef2f2' : past ? '#f1f5f9' : '#f8fafc',
+                              color: sel ? '#fff' : occupied ? '#fca5a5' : past ? '#cbd5e1' : '#374151',
+                              border: sel ? '1.5px solid #1e3a5f' : occupied ? '1.5px solid #fecaca' : past ? '1.5px solid #e5e7eb' : '1.5px solid #e2e8f0',
+                              cursor: blocked ? 'not-allowed' : 'pointer',
+                              textDecoration: blocked ? 'line-through' : 'none',
                             }}>
                             {slotLabel(h)}
                           </button>
@@ -266,6 +281,7 @@ export default function ReservePage() {
                       {[
                         { bg: '#f8fafc', border: '#e2e8f0', label: '선택 가능' },
                         { bg: 'linear-gradient(135deg, #1e3a5f, #2d5a9e)', border: '#1e3a5f', label: '선택됨' },
+                        { bg: '#fef2f2', border: '#fecaca', label: '예약됨' },
                         { bg: '#f1f5f9', border: '#e5e7eb', label: '지난 시간' },
                       ].map((x) => (
                         <div key={x.label} className="flex items-center gap-1.5">
@@ -274,7 +290,7 @@ export default function ReservePage() {
                         </div>
                       ))}
                     </div>
-                    <p className="text-[11px] text-gray-400 mt-3">이미 예약된 시간대는 예약 확정 시 서버에서 자동으로 거부됩니다.</p>
+                    <p className="text-[11px] text-gray-400 mt-3">예약된 시간대는 선택할 수 없으며, 최종 확정 여부는 서버에서도 다시 검증됩니다.</p>
                   </div>
                 )}
               </div>
