@@ -1,4 +1,4 @@
--- 샘플 더미 데이터 (테스트용)
+-- StudyRoomMate 샘플 더미 데이터 (테스트용)
 -- password는 BCryptPasswordEncoder(cost 10)로 'password123!'를 인코딩한 값 -> 모든 계정 로그인 시 password123! 사용
 
 INSERT INTO member (id, username, password, email, name, role, grade) VALUES
