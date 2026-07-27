@@ -129,11 +129,6 @@ export interface ReviewUpdateRequest {
   content?: string
 }
 
-export interface RoomRatingSummaryDto {
-  averageRating: number
-  reviewCount: number
-}
-
 /* ── Wishlist ── */
 export interface WishlistResponseDto {
   id: number
