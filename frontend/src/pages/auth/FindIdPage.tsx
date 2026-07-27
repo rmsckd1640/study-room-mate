@@ -151,7 +151,9 @@ export default function FindIdPage() {
           <span className="text-gray-200">|</span>
           <button onClick={() => navigate('/signup')} className="text-gray-400 hover:text-gray-700 transition-colors">회원가입</button>
           <span className="text-gray-200">|</span>
-          <button onClick={() => navigate('/find-password')} className="font-medium transition-colors" style={{ color: '#2d5a9e' }}>비밀번호 찾기</button>
+          <button className="font-semibold" style={{ color: '#2d5a9e', cursor: 'default' }}>아이디 찾기</button>
+          <span className="text-gray-200">|</span>
+          <button onClick={() => navigate('/find-password')} className="text-gray-400 hover:text-gray-700 transition-colors">비밀번호 찾기</button>
         </div>
       </div>
     </div>

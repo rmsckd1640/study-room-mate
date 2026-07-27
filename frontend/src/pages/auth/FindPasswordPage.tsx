@@ -27,6 +27,19 @@ export default function FindPasswordPage() {
     }
   }
 
+  // 같은 이메일로 재설정 메일을 다시 보낸다 (링크는 이메일에서만 열리므로, 재설정 페이지로 직접 이동하는 버튼은 두지 않는다)
+  const handleResend = async () => {
+    setError('')
+    setLoading(true)
+    try {
+      await requestPasswordReset({ email: email.trim() })
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '재전송에 실패했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const ic = focused ? '#2d5a9e' : '#9ca3af'
 
   return (
@@ -115,14 +128,16 @@ export default function FindPasswordPage() {
                 이메일이 도착하지 않았다면 스팸함을 확인하거나 잠시 후 다시 시도해 주세요. 링크는 <b>30분</b>간 유효합니다.
               </div>
 
-              {/* 이메일로 받은 링크를 열면 /reset-password?token=... 으로 이동합니다. 토큰을 못 받았다면 아래에서 직접 이동해 수동으로 입력할 수 있습니다. */}
-              <button onClick={() => navigate('/reset-password')}
-                className="w-full py-3.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 mb-3 flex items-center justify-center gap-2"
+              {error && (
+                <div className="mb-3 px-4 py-2.5 rounded-xl text-xs font-medium text-center" style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }}>
+                  {error}
+                </div>
+              )}
+
+              <button onClick={handleResend} disabled={loading}
+                className="w-full py-3.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 mb-3 disabled:opacity-50"
                 style={{ background: 'linear-gradient(135deg, #1e3a5f, #2d5a9e)', boxShadow: '0 4px 14px rgba(30,58,95,0.25)' }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
-                </svg>
-                재설정 페이지로 이동
+                {loading ? '재전송 중...' : '재시도'}
               </button>
 
               <button onClick={() => { setStep('input'); setEmail(''); setError('') }}
@@ -137,9 +152,11 @@ export default function FindPasswordPage() {
         <div className="flex items-center justify-center gap-4 mt-6 text-sm">
           <button onClick={() => navigate('/login')} className="text-gray-400 hover:text-gray-700 transition-colors">로그인</button>
           <span className="text-gray-200">|</span>
-          <button onClick={() => navigate('/find-id')} className="font-medium transition-colors" style={{ color: '#2d5a9e' }}>아이디 찾기</button>
-          <span className="text-gray-200">|</span>
           <button onClick={() => navigate('/signup')} className="text-gray-400 hover:text-gray-700 transition-colors">회원가입</button>
+          <span className="text-gray-200">|</span>
+          <button onClick={() => navigate('/find-id')} className="text-gray-400 hover:text-gray-700 transition-colors">아이디 찾기</button>
+          <span className="text-gray-200">|</span>
+          <button className="font-semibold" style={{ color: '#2d5a9e', cursor: 'default' }}>비밀번호 찾기</button>
         </div>
       </div>
     </div>
