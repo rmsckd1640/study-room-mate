@@ -14,4 +14,6 @@ public interface WishlistService {
 	List<WishlistResponseDto> getWishlistsByMember(String username);
 
 	long countByRoomId(Long roomId);
+
+	boolean isWishlisted(String username, Long roomId);
 }

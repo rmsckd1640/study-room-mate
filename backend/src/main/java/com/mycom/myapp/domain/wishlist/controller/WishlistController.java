@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.mycom.myapp.domain.wishlist.dto.WishlistCreateRequest;
@@ -59,5 +60,13 @@ public class WishlistController {
 	public ResponseEntity<ResultDto<Long>> countByRoom(@PathVariable("roomId") Long roomId) {
 		Long data = wishlistService.countByRoomId(roomId);
 		return ResponseEntity.ok(ResultDto.<Long>builder().message("방의 즐겨찾기된 횟수 조회 성공").data(data).build());
+	}
+
+	@Operation(description = "USER : 특정 방을 찜했는지 여부 확인")
+	@GetMapping("/exists")
+	public ResponseEntity<ResultDto<Boolean>> isWishlisted(@RequestParam("roomId") Long roomId) {
+		String username = securityUtils.getCurrentUsername();
+		boolean data = wishlistService.isWishlisted(username, roomId);
+		return ResponseEntity.ok(ResultDto.<Boolean>builder().message("조회 성공").data(data).build());
 	}
 }

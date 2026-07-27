@@ -81,4 +81,12 @@ public class ReviewController {
 		RoomRatingSummaryDto data = reviewService.getRatingSummary(roomId);
 		return ResponseEntity.ok(ResultDto.<RoomRatingSummaryDto>builder().message("조회 성공").data(data).build());
 	}
+
+	@Operation(description = "USER : 특정 방에 이미 리뷰를 작성했는지 여부 확인")
+	@GetMapping("/room/{roomId}/reviewed")
+	public ResponseEntity<ResultDto<Boolean>> hasReviewed(@PathVariable("roomId") Long roomId) {
+		String username = securityUtils.getCurrentUsername();
+		boolean data = reviewService.hasReviewed(username, roomId);
+		return ResponseEntity.ok(ResultDto.<Boolean>builder().message("조회 성공").data(data).build());
+	}
 }
