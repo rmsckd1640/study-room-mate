@@ -70,6 +70,10 @@ public class TossPaymentServiceImpl implements TossPaymentService {
 	}
 
 	public TossPaymentResponse cancel(String paymentKey, String cancelReason, Long cancelAmount) {
+		if (cancelReason == null || cancelReason.isBlank()) {
+			throw new IllegalArgumentException("취소 사유는 필수입니다.");
+		}
+
 		Map<String, Object> body = cancelAmount != null
 				? Map.of("cancelReason", cancelReason, "cancelAmount", cancelAmount)
 				: Map.of("cancelReason", cancelReason);
