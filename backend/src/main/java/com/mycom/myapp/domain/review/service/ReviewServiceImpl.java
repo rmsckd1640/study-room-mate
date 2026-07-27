@@ -116,4 +116,10 @@ public class ReviewServiceImpl implements ReviewService {
 		long count = reviewRepository.countByRoomId(roomId);
 		return new RoomRatingSummaryDto(average != null ? average : 0.0, count);
 	}
+
+	@Override
+	public boolean hasReviewed(String username, Long roomId) {
+		Member member = memberRepository.findByUsername(username).orElseThrow(() -> new UserNotFoundException("존재하지 않는 회원입니다."));
+		return reviewRepository.existsByMember_IdAndRoom_Id(member.getId(), roomId);
+	}
 }

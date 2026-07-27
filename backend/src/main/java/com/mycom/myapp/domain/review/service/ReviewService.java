@@ -23,4 +23,6 @@ public interface ReviewService {
 	Page<ReviewResponseDto> getReviewsByRoom(Long roomId, Pageable pageable);
 
 	RoomRatingSummaryDto getRatingSummary(Long roomId);
+
+	boolean hasReviewed(String username, Long roomId);
 }
