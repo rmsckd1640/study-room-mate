@@ -15,6 +15,41 @@ const STATUS_CFG: Record<ReservationStatus, { label: string; color: string; bg: 
   rejected:     { label: '거절',     color: '#dc2626', bg: '#fef2f2' },
 }
 
+/* ── 거절 사유 모달 (사유 입력 필수) ── */
+function RejectModal({ onConfirm, onClose }: { onConfirm: (reason: string) => void; onClose: () => void }) {
+  const [reason, setReason] = useState('')
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ background: '#fff', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+        <div className="px-6 py-5" style={{ borderBottom: '1px solid #f1f5f9' }}>
+          <h3 className="text-base font-bold text-gray-900">예약 거절</h3>
+        </div>
+        <div className="px-6 py-5">
+          <p className="text-sm text-gray-600 mb-3">거절 사유를 입력해주세요.</p>
+          <textarea
+            value={reason} onChange={(e) => setReason(e.target.value)}
+            rows={4} placeholder="예: 시설 점검으로 인해 예약을 거절합니다."
+            className="w-full px-4 py-3 rounded-xl text-sm text-gray-900 outline-none resize-none"
+            style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0' }}
+          />
+        </div>
+        <div className="px-6 py-4 flex gap-2" style={{ borderTop: '1px solid #f1f5f9' }}>
+          <button onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-100 transition-all">
+            닫기
+          </button>
+          <button onClick={() => onConfirm(reason)} disabled={!reason.trim()}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
+            style={{ background: 'linear-gradient(135deg, #dc2626, #ef4444)' }}>
+            거절 확정
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function ReservationManagePage() {
   const { showToast } = useToast()
   const [loading, setLoading] = useState(true)
@@ -22,6 +57,7 @@ export default function ReservationManagePage() {
   const [rooms, setRooms] = useState<RoomResponseDto[]>([])
   const [filterStatus, setFilterStatus] = useState<ReservationStatus | 'all'>('all')
   const [searchRoom, setSearchRoom]     = useState('')
+  const [rejectId, setRejectId]         = useState<number | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -63,9 +99,11 @@ export default function ReservationManagePage() {
     }
   }
 
-  const handleReject = async (id: number) => {
+  const handleReject = async (reason: string) => {
+    if (rejectId === null) return
     try {
-      await reservationsApi.adminRejectReservation(id)
+      await reservationsApi.adminRejectReservation(rejectId, reason)
+      setRejectId(null)
       showToast('예약이 거절되었습니다.', 'success')
       await load()
     } catch (err) {
@@ -165,7 +203,7 @@ export default function ReservationManagePage() {
                                 style={{ background: 'linear-gradient(135deg, #16a34a, #22c55e)' }}>
                                 승인
                               </button>
-                              <button onClick={() => handleReject(r.id)}
+                              <button onClick={() => setRejectId(r.id)}
                                 className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90 whitespace-nowrap"
                                 style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
                                 거절
@@ -187,6 +225,8 @@ export default function ReservationManagePage() {
           </div>
         </div>
       </div>
+
+      {rejectId !== null && <RejectModal onConfirm={handleReject} onClose={() => setRejectId(null)} />}
     </div>
   )
 }

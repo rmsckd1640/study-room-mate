@@ -33,6 +33,6 @@ export function adminConfirmReservation(id: number, status: ReservationStatus): 
   return apiFetch<ReservationResponse>(`/api/admin/reservation/${id}/confirm`, { method: 'POST', query: { status } })
 }
 
-export function adminRejectReservation(id: number, reason?: string): Promise<ReservationResponse> {
+export function adminRejectReservation(id: number, reason: string): Promise<ReservationResponse> {
   return apiFetch<ReservationResponse>(`/api/admin/reservation/${id}/reject`, { method: 'POST', query: { reason } })
 }
