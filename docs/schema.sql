@@ -1,3 +1,26 @@
+-- StudyRoomMate 테이블 구조
+
+-- ============================================================
+-- 1. 데이터베이스 생성 및 선택
+-- ============================================================
+CREATE DATABASE IF NOT EXISTS `studyroommate` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `studyroommate`;
+
+-- ============================================================
+-- 2. 기존 테이블 삭제 (외래키 의존성 역순)
+-- ============================================================
+DROP TABLE IF EXISTS `payment`;
+DROP TABLE IF EXISTS `reservation`;
+DROP TABLE IF EXISTS `wishlist`;
+DROP TABLE IF EXISTS `review`;
+DROP TABLE IF EXISTS `password_reset_token`;
+DROP TABLE IF EXISTS `refresh_token`;
+DROP TABLE IF EXISTS `room`;
+DROP TABLE IF EXISTS `member`;
+
+-- ============================================================
+-- 3. 테이블 생성
+-- ============================================================
 CREATE TABLE `member` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `username` varchar(255) NOT NULL COMMENT '로그인 아이디',
