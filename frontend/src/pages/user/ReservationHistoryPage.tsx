@@ -81,13 +81,9 @@ export default function ReservationHistoryPage() {
       const reservations = await reservationsApi.getMyReservations()
       const roomCache = new Map<number, RoomResponseDto>()
       const uniqueRoomIds = [...new Set(reservations.map((r) => r.roomId))]
-      await Promise.all(uniqueRoomIds.map(async (roomId) => {
-        try {
-          roomCache.set(roomId, await roomsApi.getRoom(roomId))
-        } catch {
-          /* 방이 삭제된 경우 등 — room은 null로 남김 */
-        }
-      }))
+      // 중복 제거된 roomId 목록을 배치 조회 1번으로 가져온다.
+      const rooms = await roomsApi.getRoomsByIds(uniqueRoomIds)
+      rooms.forEach((room) => roomCache.set(room.id, room))
       setItems(reservations.map((r) => ({ reservation: r, room: roomCache.get(r.roomId) ?? null })))
     } catch {
       showToast('예약 내역을 불러오지 못했습니다.', 'error')

@@ -28,22 +28,19 @@ export default function RoomDetailPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [roomData, reviewPage, count] = await Promise.all([
+      // room 상세 응답(getRoom)에 이미 이 사용자의 찜 여부(wishlisted)와 찜 개수(wishlistCount)가
+      // 배치 쿼리로 채워져서 오므로, countWishlistByRoom/getWishlists를 별도로 호출할 필요가 없다.
+      const [roomData, reviewPage] = await Promise.all([
         roomsApi.getRoom(id),
         reviewsApi.getReviewsByRoom(id, 0, 3),
-        wishlistsApi.countWishlistByRoom(id),
       ])
       setRoom(roomData)
       setReviews(reviewPage.content)
-      setFavCount(count)
+      setFavCount(roomData.wishlistCount)
+      setIsFavorited(roomData.wishlisted)
 
       if (!isAdmin) {
-        const [wishlist, myReservations] = await Promise.all([
-          wishlistsApi.getWishlists(),
-          reservationsApi.getMyReservations(),
-        ])
-        const mine = wishlist.find((w) => w.roomId === id)
-        setIsFavorited(mine !== undefined)
+        const myReservations = await reservationsApi.getMyReservations()
         setHasConfirmed(myReservations.some((r) => r.roomId === id && (r.status === 'CONFIRMED' || r.status === 'PAYMENT_DONE')))
       }
     } catch {
